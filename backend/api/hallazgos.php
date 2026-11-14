@@ -43,35 +43,43 @@ function leerHallazgos(): array
     return is_array($datos) ? $datos : [];
 }
 
-/** Lee, modifica y escribe el archivo bajo un bloqueo exclusivo (evita condiciones de carrera). */
+/**
+ * Añade un hallazgo bajo un bloqueo exclusivo (hallazgos.json.lock) y escribe en un archivo
+ * temporal que luego se renombra: rename() es atómico, así que los lectores nunca ven un JSON
+ * a medias y un fallo de escritura no destruye los datos previos.
+ */
 function agregarHallazgo(array $hallazgo): array
 {
     $dir = dirname(ARCHIVO_DATOS);
     if (!is_dir($dir) && !mkdir($dir, 0775, true) && !is_dir($dir)) {
         responder(500, ['error' => 'No se pudo crear el directorio de datos']);
     }
-    $fp = fopen(ARCHIVO_DATOS, 'c+');
-    if ($fp === false) {
-        responder(500, ['error' => 'No se pudo abrir hallazgos.json']);
+    $candado = fopen(ARCHIVO_DATOS . '.lock', 'c');
+    if ($candado === false || !flock($candado, LOCK_EX)) {
+        responder(500, ['error' => 'No se pudo bloquear hallazgos.json']);
     }
-    flock($fp, LOCK_EX);
-    $lista = json_decode(stream_get_contents($fp) ?: '[]', true);
-    $lista = is_array($lista) ? $lista : [];
 
-    $ultimoId = 0;
-    foreach ($lista as $h) {
-        $ultimoId = max($ultimoId, (int) ($h['id'] ?? 0));
+    try {
+        $lista = leerHallazgos();
+        $ultimoId = 0;
+        foreach ($lista as $h) {
+            $ultimoId = max($ultimoId, (int) ($h['id'] ?? 0));
+        }
+        $hallazgo = ['id' => $ultimoId + 1] + $hallazgo + ['fecha' => gmdate('c')];
+        $lista[] = $hallazgo;
+
+        $json = json_encode($lista, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $temporal = ARCHIVO_DATOS . '.' . bin2hex(random_bytes(6)) . '.tmp';
+        $escrito = $json === false ? false : file_put_contents($temporal, $json);
+        if ($escrito !== strlen((string) $json) || !rename($temporal, ARCHIVO_DATOS)) {
+            @unlink($temporal);
+            responder(500, ['error' => 'No se pudo guardar el hallazgo']);
+        }
+        return $hallazgo;
+    } finally {
+        flock($candado, LOCK_UN);
+        fclose($candado);
     }
-    $hallazgo = ['id' => $ultimoId + 1] + $hallazgo + ['fecha' => gmdate('c')];
-    $lista[] = $hallazgo;
-
-    ftruncate($fp, 0);
-    rewind($fp);
-    fwrite($fp, json_encode($lista, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-    fflush($fp);
-    flock($fp, LOCK_UN);
-    fclose($fp);
-    return $hallazgo;
 }
 
 function validar(array $entrada): array

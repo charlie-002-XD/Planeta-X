@@ -1,1 +1,3 @@
 data/hallazgos.json
+data/*.lock
+data/*.tmp
