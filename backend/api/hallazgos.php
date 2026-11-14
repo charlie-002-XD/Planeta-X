@@ -33,14 +33,18 @@ function responder(int $codigo, $datos): void
     exit;
 }
 
-function leerHallazgos(): array
+/** Devuelve la lista guardada, o null si el archivo existe pero no se puede leer o no es JSON válido. */
+function leerHallazgos(): ?array
 {
     if (!is_file(ARCHIVO_DATOS)) {
         return [];
     }
     $contenido = file_get_contents(ARCHIVO_DATOS);
-    $datos = json_decode($contenido ?: '[]', true);
-    return is_array($datos) ? $datos : [];
+    if ($contenido === false) {
+        return null;
+    }
+    $datos = json_decode($contenido, true);
+    return is_array($datos) ? $datos : null;
 }
 
 /**
@@ -61,6 +65,9 @@ function agregarHallazgo(array $hallazgo): array
 
     try {
         $lista = leerHallazgos();
+        if ($lista === null) {
+            responder(500, ['error' => 'hallazgos.json está dañado o no se puede leer; no se sobrescribe']);
+        }
         $ultimoId = 0;
         foreach ($lista as $h) {
             $ultimoId = max($ultimoId, (int) ($h['id'] ?? 0));
@@ -139,7 +146,11 @@ switch ($_SERVER['REQUEST_METHOD'] ?? 'GET') {
         exit;
 
     case 'GET':
-        responder(200, leerHallazgos());
+        $lista = leerHallazgos();
+        if ($lista === null) {
+            responder(500, ['error' => 'hallazgos.json está dañado o no se puede leer']);
+        }
+        responder(200, $lista);
 
     case 'POST':
         $entrada = json_decode(file_get_contents('php://input') ?: '', true);
