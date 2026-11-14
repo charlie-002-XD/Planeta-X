@@ -47,7 +47,7 @@ export default function App() {
     const { hallazgo } = await enviarHallazgo({
       x: pendiente.x,
       y: pendiente.y,
-      banda,
+      banda: pendiente.banda,
       epoca: pendiente.epoca,
       comentario,
       tipo,
@@ -105,7 +105,6 @@ export default function App() {
 
         <ReportPanel
           pendiente={pendiente}
-          banda={banda}
           hallazgos={hallazgos}
           estadoApi={estadoApi}
           onEnviar={enviar}

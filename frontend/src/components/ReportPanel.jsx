@@ -4,7 +4,7 @@ import { BANDAS } from '../bandas.js'
 
 const TIPOS = ['asteroide', 'cometa', 'planeta']
 
-export default function ReportPanel({ pendiente, banda, hallazgos, estadoApi, onEnviar, onCancelar, onRecargar }) {
+export default function ReportPanel({ pendiente, hallazgos, estadoApi, onEnviar, onCancelar, onRecargar }) {
   const [tipo, setTipo] = useState('asteroide')
   const [comentario, setComentario] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -52,7 +52,7 @@ export default function ReportPanel({ pendiente, banda, hallazgos, estadoApi, on
               <dl className="grid grid-cols-2 gap-2 font-mono text-xs">
                 <Dato etiqueta="X" valor={pendiente.x} />
                 <Dato etiqueta="Y" valor={pendiente.y} />
-                <Dato etiqueta="Banda" valor={`${infoBanda(banda)?.longitud.toFixed(1)} µm`} />
+                <Dato etiqueta="Banda" valor={`${infoBanda(pendiente.banda)?.longitud.toFixed(1)} µm`} />
                 <Dato etiqueta="Época" valor={pendiente.epoca} />
               </dl>
               <div className="flex gap-2">

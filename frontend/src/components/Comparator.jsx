@@ -91,7 +91,7 @@ export default function Comparator({ banda, modo, intervalo, reproduciendo, hall
     const id = crypto.randomUUID?.() ?? String(Date.now())
     setPulsos((p) => [...p, { id, xPct, yPct }])
     setTimeout(() => setPulsos((p) => p.filter((pulso) => pulso.id !== id)), 1900)
-    onMarcar({ x, y, epoca })
+    onMarcar({ x, y, epoca, banda })
   }
 
   const transicionBlink = { duration: Math.min(0.12, intervalo / 4000), ease: 'linear' }
