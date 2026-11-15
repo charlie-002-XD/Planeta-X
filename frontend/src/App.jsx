@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import StarfieldCanvas from './components/StarfieldCanvas.jsx'
 import BandSelector from './components/BandSelector.jsx'
 import Comparator from './components/Comparator.jsx'
 import ViewerControls from './components/ViewerControls.jsx'
 import ReportPanel from './components/ReportPanel.jsx'
-import { BANDAS, imagenDe } from './bandas.js'
+import RegionSelector from './components/RegionSelector.jsx'
+import { REGION_POR_DEFECTO, REGION_SINTETICA, cargarRegiones, regionDeHallazgo } from './bandas.js'
 import { MODO_LOCAL, enviarHallazgo, hallazgosLocales, obtenerHallazgos } from './api.js'
 
 export default function App() {
-  const [banda, setBanda] = useState('banda2')
+  const [regiones, setRegiones] = useState([REGION_SINTETICA])
+  const [regionId, setRegionId] = useState(REGION_POR_DEFECTO)
+  const [banda, setBanda] = useState(REGION_SINTETICA.banda_inicial)
   const [modo, setModo] = useState('slider')
   const [intervalo, setIntervalo] = useState(500)
   const [reproduciendo, setReproduciendo] = useState(true)
@@ -19,10 +22,28 @@ export default function App() {
   const [pendiente, setPendiente] = useState(null)
   const [aviso, setAviso] = useState(null)
 
-  // Precarga de las 8 imágenes para que los cambios de banda/época sean instantáneos.
+  const region = regiones.find((r) => r.id === regionId) ?? regiones[0]
+  const hallazgosRegion = useMemo(() => hallazgos.filter((h) => regionDeHallazgo(h) === region.id), [hallazgos, region.id])
+
+  // Catálogo de regiones (sintética + reales descargadas de IRSA). Sin regions.json queda solo la sintética.
   useEffect(() => {
-    BANDAS.forEach((b) => ['A', 'B'].forEach((e) => (new Image().src = imagenDe(b.id, e))))
+    cargarRegiones()
+      .then(setRegiones)
+      .catch(() => setRegiones([REGION_SINTETICA]))
   }, [])
+
+  // Precarga las imágenes de la región activa para que los cambios de banda/época sean instantáneos.
+  useEffect(() => {
+    region.bandas.forEach((b) => ['A', 'B'].forEach((e) => (new Image().src = b.imagenes[e])))
+  }, [region])
+
+  const cambiarRegion = (id) => {
+    const nueva = regiones.find((r) => r.id === id)
+    if (!nueva) return
+    setRegionId(id)
+    setBanda(nueva.bandas.some((b) => b.id === nueva.banda_inicial) ? nueva.banda_inicial : nueva.bandas[0].id)
+    setPendiente(null)
+  }
 
   const cargarHallazgos = useCallback(async () => {
     try {
@@ -51,6 +72,7 @@ export default function App() {
       x: pendiente.x,
       y: pendiente.y,
       banda: pendiente.banda,
+      region: region.id,
       epoca: pendiente.epoca,
       comentario,
       tipo,
@@ -75,15 +97,18 @@ export default function App() {
             Planeta-X <span className="font-normal text-slate-400">· Cazador de objetos en movimiento</span>
           </h1>
         </motion.div>
-        <div className="hidden text-right font-mono text-xs text-slate-500 md:block">
-          <p>Región: SPX-J0412+53</p>
-          <p>Δt = 6 meses · 1024 × 1024 px</p>
-        </div>
+        <RegionSelector regiones={regiones} region={region} onCambiar={cambiarRegion} />
       </header>
 
       <main className="mx-auto grid max-w-[1500px] gap-5 px-4 pb-8 sm:px-6 lg:grid-cols-[260px_minmax(0,1fr)_320px]">
         <div className="lg:sticky lg:top-5 lg:self-start">
-          <BandSelector bandaActiva={banda} onCambiar={setBanda} />
+          <BandSelector
+            bandas={region.bandas}
+            titulo={region.tipo === 'real' ? 'Bandas WISE (IR)' : 'Bandas IR cercano'}
+            rango={region.tipo === 'real' ? ['3.4 µm', '4.6 µm'] : undefined}
+            bandaActiva={banda}
+            onCambiar={setBanda}
+          />
         </div>
 
         <section className="flex flex-col gap-4">
@@ -97,11 +122,12 @@ export default function App() {
           />
           <div className="mx-auto w-full max-w-[min(100%,78vh)]">
             <Comparator
+              region={region}
               banda={banda}
               modo={modo}
               intervalo={intervalo}
               reproduciendo={reproduciendo}
-              hallazgos={hallazgos}
+              hallazgos={hallazgosRegion}
               pendiente={pendiente}
               onMarcar={setPendiente}
             />
@@ -109,6 +135,7 @@ export default function App() {
         </section>
 
         <ReportPanel
+          regiones={regiones}
           pendiente={pendiente}
           hallazgos={hallazgos}
           estadoApi={estadoApi}

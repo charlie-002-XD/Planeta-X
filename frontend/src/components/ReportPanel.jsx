@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BANDAS } from '../bandas.js'
-import { MODO_LOCAL } from '../api.js'
+import { regionDeHallazgo } from '../bandas.js'
+import { MODO_LOCAL, exportarHallazgos } from '../api.js'
 
 const TIPOS = ['asteroide', 'cometa', 'planeta']
 
-export default function ReportPanel({ pendiente, hallazgos, estadoApi, modoDatos, onEnviar, onCancelar, onRecargar }) {
+export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi, modoDatos, onEnviar, onCancelar, onRecargar }) {
   const [tipo, setTipo] = useState('asteroide')
   const [comentario, setComentario] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -29,7 +29,11 @@ export default function ReportPanel({ pendiente, hallazgos, estadoApi, modoDatos
     }
   }
 
-  const infoBanda = (id) => BANDAS.find((b) => b.id === id)
+  const infoBanda = (id) => regiones.flatMap((r) => r.bandas).find((b) => b.id === id)
+  const nombreRegion = (h) => {
+    const r = regiones.find((reg) => reg.id === regionDeHallazgo(h))
+    return r?.designacion ?? regionDeHallazgo(h)
+  }
 
   return (
     <motion.aside
@@ -117,9 +121,12 @@ export default function ReportPanel({ pendiente, hallazgos, estadoApi, modoDatos
           <h2 className="whitespace-nowrap text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
             Hallazgos <span className="text-slate-500">({hallazgos.length})</span>
           </h2>
-          <button type="button" onClick={onRecargar} className="text-xs text-slate-400 hover:text-cyan-200">
-            Recargar
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onRecargar} className="text-xs text-slate-400 hover:text-cyan-200">
+              Recargar
+            </button>
+            <MenuExportar modoDatos={modoDatos} deshabilitado={estadoApi !== 'ok' || hallazgos.length === 0} />
+          </div>
         </div>
         <div className="mt-2">
           <IndicadorModo estadoApi={estadoApi} modoDatos={modoDatos} />
@@ -141,6 +148,7 @@ export default function ReportPanel({ pendiente, hallazgos, estadoApi, modoDatos
                 <div className="flex items-center justify-between font-mono text-xs">
                   <span className="text-slate-200">
                     #{h.id} · ({h.x}, {h.y})
+                    <span className="ml-1.5 text-[10px] text-slate-500">{nombreRegion(h)}</span>
                   </span>
                   <span style={{ color: infoBanda(h.banda)?.color }}>
                     {infoBanda(h.banda)?.longitud.toFixed(1)} µm · {h.epoca}
@@ -184,6 +192,91 @@ function IndicadorModo({ estadoApi, modoDatos }) {
       <span className={`h-1.5 w-1.5 rounded-full ${punto}`} />
       {texto}
     </span>
+  )
+}
+
+// Botón discreto "⤓ Exportar" con un pequeño menú CSV / JSON (backend PHP o, en modo demo, localStorage).
+function MenuExportar({ modoDatos, deshabilitado }) {
+  const [abierto, setAbierto] = useState(false)
+  const [estado, setEstado] = useState('')
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!abierto) return
+    const cerrar = (e) => {
+      if (e.type === 'keydown' ? e.key === 'Escape' : !ref.current?.contains(e.target)) setAbierto(false)
+    }
+    document.addEventListener('pointerdown', cerrar)
+    document.addEventListener('keydown', cerrar)
+    return () => {
+      document.removeEventListener('pointerdown', cerrar)
+      document.removeEventListener('keydown', cerrar)
+    }
+  }, [abierto])
+
+  useEffect(() => {
+    if (!estado || estado === 'descargando') return
+    const id = setTimeout(() => setEstado(''), 2500)
+    return () => clearTimeout(id)
+  }, [estado])
+
+  const descargar = async (formato) => {
+    setAbierto(false)
+    setEstado('descargando')
+    try {
+      await exportarHallazgos(formato, modoDatos)
+      setEstado('ok')
+    } catch {
+      setEstado('error')
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        disabled={deshabilitado || estado === 'descargando'}
+        onClick={() => setAbierto((a) => !a)}
+        aria-haspopup="menu"
+        aria-expanded={abierto}
+        title={estado === 'error' ? 'No se pudo exportar' : 'Exportar todos los hallazgos'}
+        className={`flex items-center gap-1 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+          estado === 'error' ? 'text-rose-300' : estado === 'ok' ? 'text-emerald-300' : 'text-slate-400 hover:text-cyan-200'
+        }`}
+      >
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14" />
+        </svg>
+        {estado === 'descargando' ? '…' : estado === 'ok' ? 'Listo' : estado === 'error' ? 'Error' : 'Exportar'}
+      </button>
+      <AnimatePresence>
+        {abierto && (
+          <motion.div
+            role="menu"
+            initial={{ opacity: 0, y: -4, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.96 }}
+            transition={{ duration: 0.12 }}
+            className="absolute right-0 top-full z-20 mt-1.5 flex w-32 flex-col overflow-hidden rounded-lg border border-white/10 bg-space-900/95 py-1 shadow-xl backdrop-blur"
+          >
+            {[
+              ['csv', 'CSV (.csv)'],
+              ['json', 'JSON (.json)'],
+            ].map(([formato, etiqueta]) => (
+              <button
+                key={formato}
+                type="button"
+                role="menuitem"
+                onClick={() => descargar(formato)}
+                className="whitespace-nowrap px-3 py-1.5 text-left font-mono text-xs text-slate-300 hover:bg-cyan-400/10 hover:text-cyan-100"
+              >
+                {etiqueta}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 

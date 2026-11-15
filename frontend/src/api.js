@@ -3,6 +3,8 @@
 // Si el backend no responde (frontend desplegado solo en Vercel/GitHub Pages, servidor caído, etc.)
 // la app pasa a "modo demo local": los hallazgos se leen y guardan en localStorage, partiendo de
 // unos datos de ejemplo. Cada función devuelve también el `modo` con el que se resolvió.
+import { REGION_POR_DEFECTO } from './bandas.js'
+
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 const URL_HALLAZGOS = `${BASE}/api/hallazgos.php`
 const FORZAR_DEMO = import.meta.env.VITE_MODO_DEMO === 'true'
@@ -110,5 +112,53 @@ export async function enviarHallazgo(hallazgo, modo = MODO_SERVIDOR) {
   }
   return { hallazgo: guardarLocal(hallazgo), modo: MODO_LOCAL }
 }
-
 export const hallazgosLocales = () => leerLocal()
+
+const COLUMNAS_CSV = ['id', 'fecha', 'region', 'banda', 'epoca', 'x', 'y', 'tipo', 'comentario']
+
+// Igual que el backend: las celdas que Excel/LibreOffice interpretarían como fórmula se prefijan con '.
+const celdaCsv = (valor) => {
+  const texto = String(valor ?? '')
+  const seguro = /^[=+\-@\t\r]/.test(texto) ? `'${texto}` : texto
+  return /[",\n\r]/.test(seguro) ? `"${seguro.replaceAll('"', '""')}"` : seguro
+}
+
+function archivoLocal(formato) {
+  const lista = leerLocal().map((h) => ({ region: REGION_POR_DEFECTO, ...h }))
+  const sello = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15)
+  if (formato === 'csv') {
+    const filas = [COLUMNAS_CSV, ...lista.map((h) => COLUMNAS_CSV.map((c) => h[c]))]
+    const csv = '\uFEFF' + filas.map((f) => f.map(celdaCsv).join(',')).join('\r\n') + '\r\n'
+    return { blob: new Blob([csv], { type: 'text/csv;charset=utf-8' }), nombre: `hallazgos-${sello}.csv` }
+  }
+  return {
+    blob: new Blob([JSON.stringify(lista, null, 2)], { type: 'application/json' }),
+    nombre: `hallazgos-${sello}.json`,
+  }
+}
+
+function descargar(blob, nombre) {
+  const url = URL.createObjectURL(blob)
+  const enlace = Object.assign(document.createElement('a'), { href: url, download: nombre })
+  document.body.appendChild(enlace)
+  enlace.click()
+  enlace.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return nombre
+}
+
+/** Descarga todos los hallazgos como .csv o .json: del backend o, en modo demo, de localStorage. */
+export async function exportarHallazgos(formato, modo = MODO_SERVIDOR) {
+  if (modo === MODO_LOCAL || FORZAR_DEMO) {
+    const { blob, nombre } = archivoLocal(formato)
+    return descargar(blob, nombre)
+  }
+  const res = await fetch(`${URL_HALLAZGOS}?formato=${encodeURIComponent(formato)}`)
+  if (!res.ok) {
+    const datos = await res.json().catch(() => ({}))
+    throw new Error(datos.error || `Error HTTP ${res.status}`)
+  }
+  const nombre =
+    /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? `hallazgos.${formato}`
+  return descargar(await res.blob(), nombre)
+}
