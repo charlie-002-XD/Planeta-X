@@ -104,9 +104,10 @@ en `frontend/.env`. El origen permitido en el backend se configura con la variab
 ## Modo demo local (sin backend)
 
 `src/api.js` intenta primero el backend PHP. Si no responde, la app sigue funcionando y guarda los hallazgos en
-`localStorage` del navegador (clave `planeta-x:hallazgos:v1`), partiendo de 3 hallazgos de ejemplo. Esto pasa
-cuando el fetch falla por red, CORS o un tiempo de espera de 5 s, cuando responde `404`/`405`/`502+`, o cuando
-devuelve algo que no es JSON (el `index.html` de un hosting estático). El panel HALLAZGOS muestra un indicador:
+`localStorage` del navegador (clave `planeta_x_findings_v1`), partiendo de 3 hallazgos de ejemplo. Esto pasa
+cuando el fetch falla por red, CORS o un tiempo de espera de 5 s, cuando responde con cualquier error HTTP (p. ej.
+el `403`/`404` de Vercel) o cuando devuelve algo que no es JSON (el `index.html` de un hosting estático). Solo los
+`400` de validación del propio backend PHP se muestran como error sin pasar a modo local. El panel HALLAZGOS muestra un indicador:
 
 - **Servidor PHP conectado**: lectura y escritura en `/api/hallazgos.php`.
 - **Modo demo local**: los datos solo existen en ese navegador.

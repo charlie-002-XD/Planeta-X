@@ -57,7 +57,9 @@ export default function App() {
       setModoDatos(modo)
       setEstadoApi('ok')
     } catch {
-      setEstadoApi('error')
+      setHallazgos(hallazgosLocales())
+      setModoDatos(MODO_LOCAL)
+      setEstadoApi('ok')
     }
   }, [])
 
