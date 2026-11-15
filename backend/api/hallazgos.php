@@ -5,12 +5,13 @@
  *   GET  /api/hallazgos.php  -> lista de hallazgos (array JSON)
  *   POST /api/hallazgos.php  -> guarda { x, y, banda, epoca, comentario, tipo? }
  *
- * Los datos se persisten en backend/data/hallazgos.json.
+ * Los datos se persisten en backend/data/hallazgos.json (o en la ruta de HALLAZGOS_ARCHIVO).
  */
 
 declare(strict_types=1);
 
-const ARCHIVO_DATOS = __DIR__ . '/../data/hallazgos.json';
+// Ruta configurable con HALLAZGOS_ARCHIVO (p. ej. un disco persistente en Render/Railway).
+define('ARCHIVO_DATOS', getenv('HALLAZGOS_ARCHIVO') ?: __DIR__ . '/../data/hallazgos.json');
 const BANDAS_VALIDAS = ['banda1', 'banda2', 'banda3', 'banda4'];
 const EPOCAS_VALIDAS = ['A', 'B'];
 const TIPOS_VALIDOS = ['asteroide', 'cometa', 'planeta'];

@@ -8,4 +8,5 @@ export const BANDAS = [
 
 export const TAMANO_IMAGEN = 1024
 
-export const imagenDe = (bandaId, epoca) => `/assets/${bandaId}_epoca${epoca}.png`
+// BASE_URL respeta `base` de Vite (p. ej. /Planeta-X/ en GitHub Pages).
+export const imagenDe = (bandaId, epoca) => `${import.meta.env.BASE_URL}assets/${bandaId}_epoca${epoca}.png`

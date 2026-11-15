@@ -6,6 +6,8 @@ import tailwindcss from '@tailwindcss/vite'
 const BACKEND = process.env.BACKEND_URL || 'http://localhost:8000'
 
 export default defineConfig({
+  // Subruta de publicación, p. ej. VITE_BASE=/Planeta-X/ para GitHub Pages.
+  base: process.env.VITE_BASE || '/',
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
