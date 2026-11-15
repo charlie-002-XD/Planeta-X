@@ -1,0 +1,192 @@
+{
+  "generado": "2026-11-15T04:09:55+00:00",
+  "descargado_bytes": 2525760,
+  "regiones": [
+    {
+      "id": "spx-j0412+53",
+      "nombre": "SPX-J0412+53",
+      "designacion": "SPX-J0412+53",
+      "tipo": "sintetica",
+      "descripcion": "Campo sintético generado con scripts/generar_muestras.py",
+      "ra": 63.0,
+      "dec": 53.0,
+      "tamano_px": 1024,
+      "delta": "6 meses",
+      "banda_inicial": "banda2",
+      "epocas": {
+        "A": {
+          "etiqueta": "Época A"
+        },
+        "B": {
+          "etiqueta": "+6 meses"
+        }
+      },
+      "bandas": [
+        {
+          "id": "banda1",
+          "nombre": "Banda 1",
+          "longitud": 1.0,
+          "color": "#7dd3fc",
+          "descripcion": "IR cercano corto · estrellas calientes",
+          "imagenes": {
+            "A": "/assets/banda1_epocaA.png",
+            "B": "/assets/banda1_epocaB.png"
+          }
+        },
+        {
+          "id": "banda2",
+          "nombre": "Banda 2",
+          "longitud": 1.6,
+          "color": "#a5f3fc",
+          "descripcion": "Pico estelar · polvo tenue",
+          "imagenes": {
+            "A": "/assets/banda2_epocaA.png",
+            "B": "/assets/banda2_epocaB.png"
+          }
+        },
+        {
+          "id": "banda3",
+          "nombre": "Banda 3",
+          "longitud": 2.4,
+          "color": "#fcd34d",
+          "descripcion": "Polvo cálido · hielos",
+          "imagenes": {
+            "A": "/assets/banda3_epocaA.png",
+            "B": "/assets/banda3_epocaB.png"
+          }
+        },
+        {
+          "id": "banda4",
+          "nombre": "Banda 4",
+          "longitud": 3.8,
+          "color": "#fb923c",
+          "descripcion": "IR largo · nebulosas y PAH",
+          "imagenes": {
+            "A": "/assets/banda4_epocaA.png",
+            "B": "/assets/banda4_epocaB.png"
+          }
+        }
+      ]
+    },
+    {
+      "id": "m42",
+      "nombre": "Nebulosa de Orión",
+      "designacion": "M42",
+      "tipo": "real",
+      "descripcion": "Recorte WISE de 0.19° alrededor de M42 (IRSA)",
+      "ra": 83.8201,
+      "dec": -5.3876,
+      "ra_hms": "5:35:16.8",
+      "dec_dms": "-5:23:15",
+      "radio_consulta_grados": 0.1,
+      "campo_grados": 0.1914,
+      "tamano_px": 512,
+      "escala_arcsec_px": 1.346,
+      "delta": "14.0 años",
+      "banda_inicial": "w1",
+      "epocas": {
+        "A": {
+          "etiqueta": "WISE 2010",
+          "mision": "WISE All-Sky (criogénica)",
+          "coleccion": "wise_allsky",
+          "obs_id": "7a_02557a_081",
+          "fecha": "2010-03-09T02:55:15Z",
+          "mjd": 55264.1217
+        },
+        "B": {
+          "etiqueta": "NEOWISE-R 2024",
+          "mision": "NEOWISE-R",
+          "coleccion": "neowiser",
+          "obs_id": "7r_59237r_067",
+          "fecha": "2024-02-21T22:03:49Z",
+          "mjd": 60361.91932
+        }
+      },
+      "bandas": [
+        {
+          "id": "w1",
+          "nombre": "WISE W1",
+          "longitud": 3.4,
+          "color": "#fdba74",
+          "descripcion": "WISE W1 · estrellas y polvo cálido",
+          "imagenes": {
+            "A": "/assets/regions/m42_w1_epocaA.png",
+            "B": "/assets/regions/m42_w1_epocaB.png"
+          }
+        },
+        {
+          "id": "w2",
+          "nombre": "WISE W2",
+          "longitud": 4.6,
+          "color": "#f87171",
+          "descripcion": "WISE W2 · polvo caliente y objetos fríos",
+          "imagenes": {
+            "A": "/assets/regions/m42_w2_epocaA.png",
+            "B": "/assets/regions/m42_w2_epocaB.png"
+          }
+        }
+      ],
+      "fuente": "NASA/IPAC Infrared Science Archive (IRSA) · WISE/NEOWISE"
+    },
+    {
+      "id": "m45",
+      "nombre": "Cúmulo de las Pléyades",
+      "designacion": "M45",
+      "tipo": "real",
+      "descripcion": "Recorte WISE de 0.17° alrededor de M45 (IRSA)",
+      "ra": 56.65833,
+      "dec": 24.17806,
+      "ra_hms": "3:46:38.0",
+      "dec_dms": "+24:10:41",
+      "radio_consulta_grados": 0.1,
+      "campo_grados": 0.1672,
+      "tamano_px": 512,
+      "escala_arcsec_px": 1.176,
+      "delta": "14.0 años",
+      "banda_inicial": "w1",
+      "epocas": {
+        "A": {
+          "etiqueta": "WISE 2010",
+          "mision": "WISE All-Sky (criogénica)",
+          "coleccion": "wise_allsky",
+          "obs_id": "5a_01845a_133",
+          "fecha": "2010-02-13T13:45:17Z",
+          "mjd": 55240.57312
+        },
+        "B": {
+          "etiqueta": "NEOWISE-R 2024",
+          "mision": "NEOWISE-R",
+          "coleccion": "neowiser",
+          "obs_id": "3r_58513r_119",
+          "fecha": "2024-01-29T14:21:49Z",
+          "mjd": 60338.59849
+        }
+      },
+      "bandas": [
+        {
+          "id": "w1",
+          "nombre": "WISE W1",
+          "longitud": 3.4,
+          "color": "#fdba74",
+          "descripcion": "WISE W1 · estrellas y polvo cálido",
+          "imagenes": {
+            "A": "/assets/regions/m45_w1_epocaA.png",
+            "B": "/assets/regions/m45_w1_epocaB.png"
+          }
+        },
+        {
+          "id": "w2",
+          "nombre": "WISE W2",
+          "longitud": 4.6,
+          "color": "#f87171",
+          "descripcion": "WISE W2 · polvo caliente y objetos fríos",
+          "imagenes": {
+            "A": "/assets/regions/m45_w2_epocaA.png",
+            "B": "/assets/regions/m45_w2_epocaB.png"
+          }
+        }
+      ],
+      "fuente": "NASA/IPAC Infrared Science Archive (IRSA) · WISE/NEOWISE"
+    }
+  ]
+}

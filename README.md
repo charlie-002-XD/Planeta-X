@@ -7,6 +7,7 @@ MVP para el reto **SPHEREx** de la NASA: un comparador de épocas para detectar 
 frontend/   React + Vite + TailwindCSS + Framer Motion (.jsx)
 backend/    API REST en PHP puro (api/hallazgos.php → data/hallazgos.json)
 scripts/    generar_muestras.py: imágenes sintéticas Época A / Época B
+            fetch_irsa_samples.py: recortes reales WISE (M42, M45) desde IRSA
 ```
 
 ## Puesta en marcha
@@ -17,6 +18,10 @@ Requisitos: Node 18+, PHP 8+, Python 3 con `numpy` y `pillow`.
 # 1. Datos de prueba (ya incluidos en frontend/public/assets; regenerar es opcional)
 pip install numpy pillow
 python scripts/generar_muestras.py
+
+# 1b. Regiones reales (ya incluidas en frontend/public/assets/regions; regenerar es opcional)
+pip install -r scripts/requirements-irsa.txt
+python scripts/fetch_irsa_samples.py
 
 # 2. Backend PHP (puerto 8000)
 php -S localhost:8000 -t backend
@@ -36,7 +41,9 @@ en `frontend/.env`. El origen permitido en el backend se configura con la variab
 | Método | Ruta                  | Descripción                                    |
 | ------ | --------------------- | ---------------------------------------------- |
 | GET    | `/api/hallazgos.php`  | Lista de hallazgos (array JSON)                |
-| POST   | `/api/hallazgos.php`  | Guarda `{ x, y, banda, epoca, comentario, tipo? }` |
+| GET    | `/api/hallazgos.php?formato=csv` | Descarga todos los hallazgos como `.csv` (UTF-8 con BOM) |
+| GET    | `/api/hallazgos.php?formato=json` | Descarga todos los hallazgos como `.json` |
+| POST   | `/api/hallazgos.php`  | Guarda `{ x, y, banda, epoca, comentario, tipo?, region? }` |
 
 ```bash
 curl -X POST http://localhost:8000/api/hallazgos.php \
@@ -44,8 +51,9 @@ curl -X POST http://localhost:8000/api/hallazgos.php \
   -d '{"x":468,"y":501,"banda":"banda2","epoca":"B","comentario":"Se desplaza al NE","tipo":"asteroide"}'
 ```
 
-Validación: `x`, `y` numéricos (0–4096), `banda` ∈ `banda1..banda4`, `epoca` ∈ `A|B`, `comentario` ≤ 500
-caracteres, `tipo` opcional ∈ `asteroide|cometa|planeta`. Errores → `400` con `{ "error": "..." }`.
+Validación: `x`, `y` numéricos (0–4096), `banda` ∈ `banda1..banda4|w1|w2`, `epoca` ∈ `A|B`, `comentario` ≤ 500
+caracteres, `tipo` opcional ∈ `asteroide|cometa|planeta`, `region` opcional (id en minúsculas; por defecto
+`spx-j0412+53`). En el CSV, las celdas que empiezan por `= + - @` se prefijan con `'` para evitar inyección de fórmulas. Errores → `400` con `{ "error": "..." }`.
 
 ## Cómo funciona
 
@@ -85,3 +93,32 @@ caracteres, `tipo` opcional ∈ `asteroide|cometa|planeta`. Errores → `400` co
 banda con una PSF y un color dependientes de la longitud de onda, añade el objeto móvil en
 (412, 538) en la Época A y en (468, 501) en la Época B, ruido de detector distinto por época y un
 estiramiento `asinh`. Genera `bandaN_epocaA/B.png` y `epoca_a.png` / `epoca_b.png`.
+
+### Regiones reales (`fetch_irsa_samples.py`)
+El menú **Región** (arriba a la derecha) lee `frontend/public/assets/regions/regions.json`, que contiene la región
+sintética y dos regiones reales: **M42** (Nebulosa de Orión) y **M45** (Pléyades). Para cada una:
+
+- **Época A**: exposición única WISE All-Sky (2010, colección IRSA `wise_allsky`); **Época B**: la exposición
+  NEOWISE-R más reciente (2024, `neowiser`). Bandas **W1 (3.4 µm)** y **W2 (4.6 µm)** de la misma exposición.
+- Solo se descargan **recortes** que IRSA corta en el servidor (`?center=RA,Dec&size=0.2deg`, radio 0.1°):
+  8 FITS de ~0.3 MB (≈2.4 MB en total). El script aborta si el total supera 15 MiB.
+- Los FITS quedan en `scripts/.cache_irsa/` (ignorado por git) para no repetir descargas.
+
+Conversión FITS → PNG con `astropy`:
+1. `astroquery.ipac.irsa.Irsa.query_sia` consulta el índice SIA de IRSA: devuelve solo metadatos (URL, banda,
+   fecha, centro de cada exposición). Se elige la exposición mejor centrada (A) o la más reciente (B).
+2. `astropy.io.fits` abre el recorte: una matriz `float32` en DN (cuentas del detector) y una cabecera con
+   `MAGZP` (punto cero), `MJD_OBS` (fecha) y la astrometría (`CTYPE = RA---SIN-SIP`, `CD`, coeficientes SIP).
+3. Calibración: `flujo = DN · 10^(-0.4·(MAGZP − 22.5))` pone ambas épocas en la misma unidad (nanomaggies).
+4. `astropy.stats.sigma_clipped_stats` estima el fondo del cielo (mediana con recorte a 3σ) y se resta.
+5. Los píxeles saturados llegan como `NaN`: los huecos grandes se rellenan con el máximo y los sueltos con
+   `astropy.convolution.interpolate_replace_nans` (núcleo gaussiano).
+6. `astropy.wcs.WCS` + `reproject_interp` llevan cada época a una rejilla común TAN de 512 × 512 px, norte
+   arriba y este a la izquierda: así el mismo píxel es la misma posición del cielo en A y en B (los detectores
+   de WISE estaban girados de forma distinta en cada pasada). El lado es el mayor cuadrado cubierto por los 4
+   recortes de la región (0.19° en M42, 0.17° en M45).
+7. `astropy.visualization`: `ManualInterval(−2σ, percentil 99.9)` lleva el flujo a [0, 1] y
+   `LogStretch(a=1000)` aplica `y = log(1000·x + 1) / log(1001)`, que realza la nebulosa tenue sin quemar las
+   estrellas. El mismo intervalo se usa en las dos épocas para que el parpadeo solo muestre cambios reales.
+8. Se multiplica por el color de la banda, se invierte el eje vertical (en FITS la fila 0 está abajo; en PNG,
+   arriba) y Pillow guarda el PNG de 8 bits que el navegador ya puede mostrar.

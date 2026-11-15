@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BANDAS, TAMANO_IMAGEN, imagenDe } from '../bandas.js'
 import { MarcadorHallazgo, MarcaPendiente, RadarPulse } from './RadarPulse.jsx'
 
 const limitar = (v, min, max) => Math.min(max, Math.max(min, v))
@@ -11,7 +10,7 @@ const limitar = (v, min, max) => Math.min(max, Math.max(min, v))
  *   según la posición del divisor (variable CSS --pos, en %). Izquierda = A, derecha = B.
  * - Modo "blink": la Época B aparece/desaparece cada `intervalo` ms sobre la A.
  */
-export default function Comparator({ banda, modo, intervalo, reproduciendo, hallazgos, pendiente, onMarcar }) {
+export default function Comparator({ region, banda, modo, intervalo, reproduciendo, hallazgos, pendiente, onMarcar }) {
   const visorRef = useRef(null)
   const coordsRef = useRef(null)
   const posRef = useRef(50)
@@ -20,7 +19,10 @@ export default function Comparator({ banda, modo, intervalo, reproduciendo, hall
   const [epocaVisible, setEpocaVisible] = useState('A')
   const [pulsos, setPulsos] = useState([])
 
-  const infoBanda = BANDAS.find((b) => b.id === banda)
+  const TAMANO_IMAGEN = region.tamano_px
+  const infoBanda = region.bandas.find((b) => b.id === banda) ?? region.bandas[0]
+  const etiquetaB = region.epocas?.B?.etiqueta ?? '+6 meses'
+  const etiquetaA = region.epocas?.A?.etiqueta
 
   // --- Blink comparator: alterna A/B con setInterval mientras esté activo.
   useEffect(() => {
@@ -91,7 +93,7 @@ export default function Comparator({ banda, modo, intervalo, reproduciendo, hall
     const id = crypto.randomUUID?.() ?? String(Date.now())
     setPulsos((p) => [...p, { id, xPct, yPct }])
     setTimeout(() => setPulsos((p) => p.filter((pulso) => pulso.id !== id)), 1900)
-    onMarcar({ x, y, epoca, banda })
+    onMarcar({ x, y, epoca, banda: infoBanda.id })
   }
 
   const transicionBlink = { duration: Math.min(0.12, intervalo / 4000), ease: 'linear' }
@@ -105,10 +107,10 @@ export default function Comparator({ banda, modo, intervalo, reproduciendo, hall
         className="relative aspect-square w-full cursor-crosshair select-none overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_0_80px_-20px_rgba(34,211,238,0.35)]"
         style={{ '--pos': 50 }}
       >
-        {/* Capa de imágenes: se re-monta al cambiar de banda para hacer el fundido entre longitudes de onda */}
+        {/* Capa de imágenes: se re-monta al cambiar de banda o región para hacer el fundido entre longitudes de onda */}
         <AnimatePresence initial={false}>
           <motion.div
-            key={banda}
+            key={`${region.id}-${infoBanda.id}`}
             className="absolute inset-0"
             initial={{ opacity: 0, scale: 1.04, filter: 'blur(12px) saturate(2.2) brightness(1.6)' }}
             animate={{ opacity: 1, scale: 1, filter: 'blur(0px) saturate(1) brightness(1)' }}
@@ -116,13 +118,13 @@ export default function Comparator({ banda, modo, intervalo, reproduciendo, hall
             transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           >
             <img
-              src={imagenDe(banda, 'A')}
+              src={infoBanda.imagenes.A}
               alt={`Época A, ${infoBanda?.nombre}`}
               draggable={false}
               className="absolute inset-0 h-full w-full object-cover"
             />
             <motion.img
-              src={imagenDe(banda, 'B')}
+              src={infoBanda.imagenes.B}
               alt={`Época B, ${infoBanda?.nombre}`}
               draggable={false}
               className="absolute inset-0 h-full w-full object-cover"
@@ -150,8 +152,8 @@ export default function Comparator({ banda, modo, intervalo, reproduciendo, hall
             hallazgo={h}
             xPct={(h.x / TAMANO_IMAGEN) * 100}
             yPct={(h.y / TAMANO_IMAGEN) * 100}
-            color={BANDAS.find((b) => b.id === h.banda)?.color ?? '#f0abfc'}
-            atenuado={h.banda !== banda}
+            color={region.bandas.find((b) => b.id === h.banda)?.color ?? '#f0abfc'}
+            atenuado={h.banda !== infoBanda.id}
           />
         ))}
 
@@ -201,8 +203,8 @@ export default function Comparator({ banda, modo, intervalo, reproduciendo, hall
         {/* Etiquetas de época */}
         {modo === 'slider' ? (
           <>
-            <EtiquetaEpoca className="left-3">ÉPOCA A</EtiquetaEpoca>
-            <EtiquetaEpoca className="right-3">ÉPOCA B · +6 meses</EtiquetaEpoca>
+            <EtiquetaEpoca className="left-3">ÉPOCA A{etiquetaA && region.tipo === 'real' ? ` · ${etiquetaA}` : ''}</EtiquetaEpoca>
+            <EtiquetaEpoca className="right-3">ÉPOCA B · {etiquetaB}</EtiquetaEpoca>
           </>
         ) : (
           <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-1 font-mono text-xs backdrop-blur">
@@ -221,7 +223,7 @@ export default function Comparator({ banda, modo, intervalo, reproduciendo, hall
                 transition={{ duration: 0.12 }}
               >
                 ÉPOCA {epocaVisible}
-                {epocaVisible === 'B' ? ' · +6 meses' : ''}
+                {epocaVisible === 'B' ? ` · ${etiquetaB}` : region.tipo === 'real' && etiquetaA ? ` · ${etiquetaA}` : ''}
               </motion.span>
             </AnimatePresence>
           </div>
