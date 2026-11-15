@@ -63,8 +63,8 @@ MAX_INTENTOS_POR_EPOCA = 3
 
 # id, nombre, designación, coordenadas de respaldo (ICRS, grados) si Sesame no responde
 REGIONES = [
-    ("m42", "Nebulosa de Orión", "M42", (83.82208, -5.39111)),
-    ("m45", "Cúmulo de las Pléyades", "M45", (56.75000, 24.11667)),
+    ("m42", "Nebulosa de Orión", "M42", (83.82010, -5.38760)),
+    ("m45", "Cúmulo de las Pléyades", "M45", (56.65833, 24.17806)),
 ]
 
 # id, nombre IRSA, longitud de onda (µm), color de tinte, descripción
@@ -194,7 +194,7 @@ def descargar_recorte(url: str, centro: SkyCoord, destino: Path, presupuesto: Pr
     destino = destino.with_name(f"{destino.stem}_{centro.ra.deg:.4f}{centro.dec.deg:+.4f}{destino.suffix}")
     if url is None:  # modo caché: recortes de una ejecución anterior (con o sin el centro en el nombre)
         sin_centro = destino.with_name(destino.name.replace(f"_{centro.ra.deg:.4f}{centro.dec.deg:+.4f}", ""))
-        destino = destino if destino.exists() else next(CACHE.glob(f"{sin_centro.stem}*.fits"), destino)
+        destino = destino if destino.exists() or not sin_centro.exists() else sin_centro
         if not destino.exists():
             sys.exit(f"✖ IRSA no responde y no hay recorte en caché para {destino.name}")
     if destino.exists():  # ya descargado en una ejecución anterior: cuenta igual para el límite
