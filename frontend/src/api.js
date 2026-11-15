@@ -3,7 +3,7 @@
 // Si el backend no responde (frontend desplegado solo en Vercel/GitHub Pages, servidor caído, etc.)
 // la app pasa a "modo demo local": los hallazgos se leen y guardan en localStorage, partiendo de
 // unos datos de ejemplo. Cada función devuelve también el `modo` con el que se resolvió.
-import { REGION_POR_DEFECTO, regionDeHallazgo } from './bandas.js'
+import { REGION_POR_DEFECTO, regionDeHallazgo, tieneDestino } from './bandas.js'
 
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 const URL_HALLAZGOS = `${BASE}/api/hallazgos.php`
@@ -15,11 +15,13 @@ export const MODO_LOCAL = 'local'
 
 const CLAVE_LOCAL = 'planeta-x:hallazgos:v1'
 
-// El objeto móvil de las imágenes sintéticas, visto en las dos épocas de la banda de 1.6 µm.
+// Ejemplos: el objeto móvil sintético y los candidatos inyectados en M42/M45 (regions.json → candidato),
+// con su vector de trayectoria (x, y) en la Época A → (x2, y2) en la Época B.
 export const HALLAZGOS_DEMO = [
-  { id: 1, region_id: REGION_POR_DEFECTO, x: 412, y: 538, banda: 'banda2', epoca: 'A', tipo: 'asteroide', comentario: 'Candidato en la Época A', fecha: '2025-06-01T03:12:00Z' },
-  { id: 2, region_id: REGION_POR_DEFECTO, x: 468, y: 501, banda: 'banda2', epoca: 'B', tipo: 'asteroide', comentario: 'Mismo objeto 6 meses después: se desplaza al NE', fecha: '2025-12-01T03:12:00Z' },
-  { id: 3, region_id: REGION_POR_DEFECTO, x: 470, y: 503, banda: 'banda4', epoca: 'B', tipo: 'asteroide', comentario: 'Sigue visible a 3.8 µm: emisión térmica', fecha: '2025-12-01T03:20:00Z' },
+  { id: 1, region_id: REGION_POR_DEFECTO, x: 412, y: 538, x2: 468, y2: 501, banda: 'banda2', epoca: 'A', tipo: 'asteroide', comentario: 'Se desplaza al NE en 6 meses', fecha: '2025-06-01T03:12:00Z' },
+  { id: 2, region_id: REGION_POR_DEFECTO, x: 470, y: 503, banda: 'banda4', epoca: 'B', tipo: 'asteroide', comentario: 'Sigue visible a 3.8 µm: emisión térmica', fecha: '2025-12-01T03:20:00Z' },
+  { id: 3, region_id: 'm42', x: 429, y: 305, x2: 392, y2: 274, banda: 'w1', epoca: 'A', tipo: 'asteroide', comentario: 'Candidato en movimiento delante de la Nebulosa de Orión', fecha: '2025-06-02T01:40:00Z' },
+  { id: 4, region_id: 'm45', x: 233, y: 108, x2: 282, y2: 97, banda: 'w1', epoca: 'A', tipo: 'asteroide', comentario: 'Candidato en movimiento junto a las Pléyades', fecha: '2025-06-02T02:05:00Z' },
 ]
 
 /** Errores que no deben activar el modo demo (p. ej. validación 400 del backend). */
@@ -60,6 +62,7 @@ function guardarLocal(hallazgo) {
   const lista = leerLocal()
   const id = lista.reduce((max, h) => Math.max(max, Number(h.id) || 0), 0) + 1
   const nuevo = { id, ...hallazgo, x: Math.round(hallazgo.x), y: Math.round(hallazgo.y), fecha: new Date().toISOString() }
+  if (tieneDestino(hallazgo)) Object.assign(nuevo, { x2: Math.round(hallazgo.x2), y2: Math.round(hallazgo.y2) })
   escribirLocal([...lista, nuevo])
   return nuevo
 }
@@ -114,7 +117,7 @@ export async function enviarHallazgo(hallazgo, modo = MODO_SERVIDOR) {
 }
 export const hallazgosLocales = () => leerLocal()
 
-const COLUMNAS_CSV = ['id', 'fecha', 'region_id', 'banda', 'epoca', 'x', 'y', 'tipo', 'comentario']
+const COLUMNAS_CSV = ['id', 'fecha', 'region_id', 'banda', 'epoca', 'x', 'y', 'x2', 'y2', 'tipo', 'comentario']
 
 // Igual que el backend: las celdas que Excel/LibreOffice interpretarían como fórmula se prefijan con '.
 const celdaCsv = (valor) => {

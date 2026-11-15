@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { MarcadorHallazgo, MarcaPendiente, RadarPulse } from './RadarPulse.jsx'
+import { EtiquetaDesplazamiento, MarcadorHallazgo, MarcaPendiente, RadarPulse, VectorTrayectoria } from './RadarPulse.jsx'
+import { desplazamientoPx, tieneDestino } from '../bandas.js'
+
+const COLOR_PENDIENTE = '#67e8f9'
 
 const limitar = (v, min, max) => Math.min(max, Math.max(min, v))
 
@@ -18,11 +21,21 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
   const arrastrandoRef = useRef(false)
   const [epocaVisible, setEpocaVisible] = useState('A')
   const [pulsos, setPulsos] = useState([])
+  const [, redibujar] = useReducer((n) => n + 1, 0)
+  const vectoresRef = useRef([])
+  const claveEpocasRef = useRef('')
 
   const TAMANO_IMAGEN = region.tamano_px
   const infoBanda = region.bandas.find((b) => b.id === banda) ?? region.bandas[0]
   const etiquetaB = region.epocas?.B?.etiqueta ?? '+6 meses'
   const etiquetaA = region.epocas?.A?.etiqueta
+
+  // Época en que se dibuja el rombo de un vector A→B. En blink, la visible; en el slider, la que muestra la imagen
+  // en el punto medio del vector (a la izquierda del divisor se ve A y a la derecha B).
+  const epocaEnSlider = (h, pos) => (((h.x + h.x2) / 2 / TAMANO_IMAGEN) * 100 < pos ? 'A' : 'B')
+  const epocaDe = (h) => (modo === 'blink' ? epocaVisible : epocaEnSlider(h, posRef.current))
+  const vectores = hallazgos.filter(tieneDestino)
+  vectoresRef.current = vectores
 
   // --- Blink comparator: alterna A/B con setInterval mientras esté activo.
   useEffect(() => {
@@ -42,7 +55,25 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
     rafRef.current = requestAnimationFrame(() => {
       visorRef.current?.style.setProperty('--pos', posRef.current.toFixed(3))
     })
+    // Solo se vuelve a renderizar cuando el divisor cruza el punto medio de algún vector.
+    const clave = vectoresRef.current.map((h) => epocaEnSlider(h, posRef.current)).join('')
+    if (clave !== claveEpocasRef.current) {
+      claveEpocasRef.current = clave
+      redibujar()
+    }
   }
+
+  // «Marcar destino en Época B»: deja la Época B a la vista donde está el punto inicial.
+  const armado = Boolean(pendiente?.armarDestino)
+  useEffect(() => {
+    if (!armado) return
+    if (modo === 'blink') setEpocaVisible('B')
+    else {
+      const pct = (pendiente.x / TAMANO_IMAGEN) * 100
+      if (pct > posRef.current - 6) aplicarPosicion(Math.max(0, pct - 12))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [armado])
 
   const pctDesdeEvento = (e) => {
     const rect = visorRef.current.getBoundingClientRect()
@@ -96,6 +127,7 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
     onMarcar({ x, y, epoca, banda: infoBanda.id })
   }
 
+  const colorDe = (h) => region.bandas.find((b) => b.id === h.banda)?.color ?? '#f0abfc'
   const transicionBlink = { duration: Math.min(0.12, intervalo / 4000), ease: 'linear' }
 
   return (
@@ -145,17 +177,66 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
           }}
         />
 
-        {/* Hallazgos guardados */}
-        {hallazgos.map((h) => (
-          <MarcadorHallazgo
-            key={h.id}
-            hallazgo={h}
-            xPct={(h.x / TAMANO_IMAGEN) * 100}
-            yPct={(h.y / TAMANO_IMAGEN) * 100}
-            color={region.bandas.find((b) => b.id === h.banda)?.color ?? '#f0abfc'}
-            atenuado={h.banda !== infoBanda.id}
-          />
-        ))}
+        {/* Vectores de trayectoria Época A → Época B */}
+        <svg
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          viewBox={`0 0 ${TAMANO_IMAGEN} ${TAMANO_IMAGEN}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <AnimatePresence>
+            {vectores.map((h) => (
+              <VectorTrayectoria
+                key={h.id}
+                x1={h.x}
+                y1={h.y}
+                x2={h.x2}
+                y2={h.y2}
+                tamano={TAMANO_IMAGEN}
+                color={colorDe(h)}
+                atenuado={h.banda !== infoBanda.id}
+              />
+            ))}
+            {tieneDestino(pendiente) && (
+              <VectorTrayectoria
+                key="pendiente"
+                x1={pendiente.x}
+                y1={pendiente.y}
+                x2={pendiente.x2}
+                y2={pendiente.y2}
+                tamano={TAMANO_IMAGEN}
+                color={COLOR_PENDIENTE}
+              />
+            )}
+          </AnimatePresence>
+        </svg>
+        <AnimatePresence>
+          {[...vectores, ...(tieneDestino(pendiente) ? [{ ...pendiente, id: 'pendiente' }] : [])].map((h) => (
+            <EtiquetaDesplazamiento
+              key={h.id}
+              xPct={((h.x + h.x2) / 2 / TAMANO_IMAGEN) * 100}
+              yPct={((h.y + h.y2) / 2 / TAMANO_IMAGEN) * 100}
+              px={desplazamientoPx(h)}
+              color={h.id === 'pendiente' ? COLOR_PENDIENTE : colorDe(h)}
+              atenuado={h.id !== 'pendiente' && h.banda !== infoBanda.id}
+            />
+          ))}
+        </AnimatePresence>
+
+        {/* Hallazgos guardados: con vector, el rombo se desliza al punto de la época visible */}
+        {hallazgos.map((h) => {
+          const enB = tieneDestino(h) && epocaDe(h) === 'B'
+          return (
+            <MarcadorHallazgo
+              key={h.id}
+              hallazgo={h}
+              xPct={((enB ? h.x2 : h.x) / TAMANO_IMAGEN) * 100}
+              yPct={((enB ? h.y2 : h.y) / TAMANO_IMAGEN) * 100}
+              color={colorDe(h)}
+              atenuado={h.banda !== infoBanda.id}
+            />
+          )
+        })}
 
         <AnimatePresence>
           {pendiente && (
@@ -164,6 +245,26 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
               xPct={(pendiente.x / TAMANO_IMAGEN) * 100}
               yPct={(pendiente.y / TAMANO_IMAGEN) * 100}
             />
+          )}
+          {tieneDestino(pendiente) && (
+            <MarcaPendiente
+              key={`destino-${pendiente.x2}-${pendiente.y2}`}
+              xPct={(pendiente.x2 / TAMANO_IMAGEN) * 100}
+              yPct={(pendiente.y2 / TAMANO_IMAGEN) * 100}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {armado && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="pointer-events-none absolute left-1/2 top-12 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-fuchsia-300/50 bg-black/70 px-3 py-1 font-mono text-[11px] text-fuchsia-100 backdrop-blur"
+            >
+              Clic en la posición del objeto en la Época B
+            </motion.div>
           )}
         </AnimatePresence>
 

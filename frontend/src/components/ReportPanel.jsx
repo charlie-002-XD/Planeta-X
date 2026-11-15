@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { regionDeHallazgo } from '../bandas.js'
+import { desplazamientoPx, regionDeHallazgo, tieneDestino } from '../bandas.js'
 import { MODO_LOCAL, exportarHallazgos } from '../api.js'
 
 const TIPOS = ['asteroide', 'cometa', 'planeta']
 
-export default function ReportPanel({ regiones, regionActual, pendiente, hallazgos, estadoApi, modoDatos, onEnviar, onCancelar, onRecargar }) {
+export default function ReportPanel({
+  regiones,
+  regionActual,
+  pendiente,
+  hallazgos,
+  estadoApi,
+  modoDatos,
+  onEnviar,
+  onCancelar,
+  onRecargar,
+  onArmarDestino,
+  onQuitarDestino,
+}) {
   const [tipo, setTipo] = useState('asteroide')
   const [comentario, setComentario] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -62,8 +74,27 @@ export default function ReportPanel({ regiones, regionActual, pendiente, hallazg
                 <Dato etiqueta="X" valor={pendiente.x} />
                 <Dato etiqueta="Y" valor={pendiente.y} />
                 <Dato etiqueta="Banda" valor={`${infoBanda(pendiente.banda)?.longitud.toFixed(1)} µm`} />
-                <Dato etiqueta="Época" valor={pendiente.epoca} />
+                <Dato etiqueta="Época" valor={tieneDestino(pendiente) ? `${pendiente.epoca} → B` : pendiente.epoca} />
               </dl>
+              {tieneDestino(pendiente) ? (
+                <div className="flex items-center justify-between gap-2 rounded-md border border-cyan-300/30 bg-cyan-400/10 px-2 py-1.5 font-mono text-xs">
+                  <span className="text-cyan-100">
+                    Destino ({pendiente.x2}, {pendiente.y2}) · Δ {desplazamientoPx(pendiente).toFixed(1)} px
+                  </span>
+                  <button type="button" onClick={onQuitarDestino} className="text-[10px] text-slate-400 hover:text-rose-200">
+                    Quitar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onArmarDestino}
+                  disabled={pendiente.armarDestino}
+                  className="rounded-lg border border-dashed border-cyan-300/50 px-3 py-1.5 text-xs text-cyan-100 transition-colors hover:bg-cyan-400/10 disabled:animate-pulse disabled:cursor-default"
+                >
+                  {pendiente.armarDestino ? 'Haz clic sobre el objeto en la Época B…' : '↗ Marcar destino en Época B'}
+                </button>
+              )}
               <div className="flex gap-2">
                 {TIPOS.map((t) => (
                   <button
@@ -114,7 +145,8 @@ export default function ReportPanel({ regiones, regionActual, pendiente, hallazg
               className="mt-3 text-sm leading-relaxed text-slate-400"
             >
               Compara las dos épocas y haz <span className="text-cyan-200">clic</span> sobre cualquier objeto que cambie de
-              posición (asteroide, cometa o planeta) para marcar sus coordenadas.
+              posición (asteroide, cometa o planeta) para marcar sus coordenadas. Un segundo clic en la otra época
+              traza su <span className="text-cyan-200">vector de trayectoria</span> A → B.
             </motion.p>
           )}
         </AnimatePresence>
@@ -172,10 +204,15 @@ export default function ReportPanel({ regiones, regionActual, pendiente, hallazg
                 <div className="flex items-center justify-between font-mono text-xs">
                   <span className="text-slate-200">
                     #{h.id} · ({h.x}, {h.y})
+                    {tieneDestino(h) && (
+                      <span className="text-cyan-200">
+                        {' → '}({h.x2}, {h.y2})
+                      </span>
+                    )}
                     <span className="ml-1.5 text-[10px] text-slate-500">{nombreRegion(h)}</span>
                   </span>
                   <span style={{ color: infoBanda(h.banda)?.color }}>
-                    {infoBanda(h.banda)?.longitud.toFixed(1)} µm · {h.epoca}
+                    {infoBanda(h.banda)?.longitud.toFixed(1)} µm · {tieneDestino(h) ? `Δ ${desplazamientoPx(h).toFixed(0)} px` : h.epoca}
                   </span>
                 </div>
                 {(h.tipo || h.comentario) && (

@@ -52,3 +52,9 @@ export async function cargarRegiones() {
 
 // `region` (sin _id) es el campo de los hallazgos guardados antes de `region_id`.
 export const regionDeHallazgo = (h) => h.region_id ?? h.region ?? REGION_POR_DEFECTO
+
+/** Hallazgo con vector de trayectoria: (x, y) en la Época A → (x2, y2) en la Época B. */
+export const tieneDestino = (h) => Number.isFinite(h?.x2) && Number.isFinite(h?.y2)
+
+/** Desplazamiento en píxeles entre las dos épocas, o null si el hallazgo no tiene destino. */
+export const desplazamientoPx = (h) => (tieneDestino(h) ? Math.hypot(h.x2 - h.x, h.y2 - h.y) : null)

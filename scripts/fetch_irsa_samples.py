@@ -78,7 +78,7 @@ BANDAS = [
 # asteroide cercano; en la Época B algo más débil (más lejos del Sol y de la Tierra).
 CANDIDATO = {
     "fwhm_arcsec": {"W1": 6.1, "W2": 6.4},
-    "pico_sigmas": {"W1": 25.0, "W2": 40.0},
+    "pico_sigmas": {"W1": 90.0, "W2": 140.0},
     "factor_epoca": {"A": 1.0, "B": 0.85},
     "desplazamiento_px": (38, 58),
     "margen_px": 64,
