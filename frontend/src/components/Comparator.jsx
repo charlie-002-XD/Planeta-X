@@ -70,7 +70,8 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
     if (modo === 'blink') setEpocaVisible('B')
     else {
       const pct = (pendiente.x / TAMANO_IMAGEN) * 100
-      if (pct > posRef.current - 6) aplicarPosicion(Math.max(0, pct - 12))
+      // A la derecha del divisor se ve la B: se mueve si el punto no queda claramente en ese lado.
+      if (pct < posRef.current + 6) aplicarPosicion(Math.max(0, pct - 12))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [armado])

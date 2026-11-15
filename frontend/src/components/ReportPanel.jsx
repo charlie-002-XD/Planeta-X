@@ -85,6 +85,10 @@ export default function ReportPanel({
                     Quitar
                   </button>
                 </div>
+              ) : pendiente.epoca === 'B' ? (
+                <p className="rounded-lg border border-dashed border-white/15 px-3 py-1.5 text-center text-xs text-slate-400">
+                  Haz clic en el objeto en la Época A para trazar su vector A → B
+                </p>
               ) : (
                 <button
                   type="button"
@@ -201,17 +205,18 @@ export default function ReportPanel({
                 exit={{ opacity: 0 }}
                 className="rounded-lg border border-white/5 bg-black/30 px-3 py-2"
               >
-                <div className="flex items-center justify-between font-mono text-xs">
-                  <span className="text-slate-200">
-                    #{h.id} · ({h.x}, {h.y})
+                <div className="flex items-start justify-between gap-2 font-mono text-xs">
+                  <span className="min-w-0 text-slate-200">
+                    <span className="whitespace-nowrap">#{h.id} · ({h.x}, {h.y})</span>
                     {tieneDestino(h) && (
-                      <span className="text-cyan-200">
-                        {' → '}({h.x2}, {h.y2})
-                      </span>
+                      <>
+                        {' '}
+                        <span className="whitespace-nowrap text-cyan-200">→ ({h.x2}, {h.y2})</span>
+                      </>
                     )}
                     <span className="ml-1.5 text-[10px] text-slate-500">{nombreRegion(h)}</span>
                   </span>
-                  <span style={{ color: infoBanda(h.banda)?.color }}>
+                  <span className="shrink-0 whitespace-nowrap" style={{ color: infoBanda(h.banda)?.color }}>
                     {infoBanda(h.banda)?.longitud.toFixed(1)} µm · {tieneDestino(h) ? `Δ ${desplazamientoPx(h).toFixed(0)} px` : h.epoca}
                   </span>
                 </div>
