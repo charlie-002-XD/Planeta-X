@@ -7,8 +7,10 @@ export const BANDAS = [
 ].map((b) => ({ ...b, imagenes: { A: `/assets/${b.id}_epocaA.png`, B: `/assets/${b.id}_epocaB.png` } }))
 
 // Antepone BASE_URL de Vite (p. ej. /Planeta-X/ en GitHub Pages) a las rutas absolutas de public/.
+// Idempotente: una ruta que ya lleva la base (o una URL completa) se deja igual.
+const BASE_PUBLICA = import.meta.env.BASE_URL
 export const rutaPublica = (ruta) =>
-  /^(?:[a-z]+:)?\/\//i.test(ruta) ? ruta : `${import.meta.env.BASE_URL}${ruta.replace(/^\//, '')}`
+  /^(?:[a-z]+:)?\/\//i.test(ruta) || ruta.startsWith(BASE_PUBLICA) ? ruta : `${BASE_PUBLICA}${ruta.replace(/^\//, '')}`
 
 const conRutasPublicas = (region) => ({
   ...region,
