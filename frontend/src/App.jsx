@@ -67,17 +67,18 @@ export default function App() {
     return () => clearTimeout(id)
   }, [aviso])
 
-  // Un segundo clic en la otra época (o tras «Marcar destino en Época B») completa el vector A → B.
-  // Si no, el clic sustituye el punto pendiente.
+  // Un segundo clic en la otra época completa el vector: (x, y) siempre en A y (x2, y2) en B.
+  // Un clic en la misma época sustituye el punto pendiente.
   const marcar = (punto) =>
     setPendiente((p) => {
-      if (!p || tieneDestino(p) || !(p.armarDestino || p.epoca !== punto.epoca)) return punto
-      const [inicio, fin] = p.epoca === 'B' && punto.epoca === 'A' ? [punto, p] : [p, punto]
-      return { x: inicio.x, y: inicio.y, epoca: inicio.epoca, banda: p.banda, x2: fin.x, y2: fin.y }
+      if (!p || tieneDestino(p) || p.epoca === punto.epoca) return punto
+      const [inicio, fin] = p.epoca === 'A' ? [p, punto] : [punto, p]
+      return { x: inicio.x, y: inicio.y, epoca: 'A', banda: p.banda, x2: fin.x, y2: fin.y }
     })
 
+  // «Marcar destino en Época B»: solo desde un punto de la Época A; el visor deja la B a la vista.
   const armarDestino = () => {
-    setPendiente((p) => p && { ...p, armarDestino: true })
+    setPendiente((p) => p && p.epoca === 'A' && { ...p, armarDestino: true })
     if (modo === 'blink') setReproduciendo(false)
   }
 

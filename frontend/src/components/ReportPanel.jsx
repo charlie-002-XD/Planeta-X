@@ -85,6 +85,10 @@ export default function ReportPanel({
                     Quitar
                   </button>
                 </div>
+              ) : pendiente.epoca === 'B' ? (
+                <p className="rounded-lg border border-dashed border-white/15 px-3 py-1.5 text-center text-xs text-slate-400">
+                  Haz clic en el objeto en la Época A para trazar su vector A → B
+                </p>
               ) : (
                 <button
                   type="button"
