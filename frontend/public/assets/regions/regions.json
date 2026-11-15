@@ -1,5 +1,5 @@
 {
-  "generado": "2026-11-15T05:25:20+00:00",
+  "generado": "2026-11-15T20:38:56+00:00",
   "descargado_bytes": 2525760,
   "regiones": [
     {
@@ -242,6 +242,73 @@
           "W1": 90.0,
           "W2": 140.0
         }
+      }
+    },
+    {
+      "id": "neossat-neo-01",
+      "nombre": "NEOSSat-NEO-01 (Asteroide cercano)",
+      "designacion": "NEOSSat-NEO-01",
+      "tipo": "simulada",
+      "descripcion": "Campo óptico simulado estilo NEOSSat (CSA): un asteroide cercano cruza el campo entre 2 exposiciones",
+      "ra": 150.0,
+      "dec": 12.0,
+      "ra_hms": "10:00:00.0",
+      "dec_dms": "+12:00:00",
+      "campo_grados": 0.86,
+      "tamano_px": 512,
+      "escala_arcsec_px": 6.047,
+      "delta": "30 min",
+      "banda_inicial": "ccd",
+      "titulo_bandas": "NEOSSat · CCD óptico",
+      "rango_bandas": [
+        "0.4 µm",
+        "1.0 µm"
+      ],
+      "epocas": {
+        "A": {
+          "etiqueta": "T₀",
+          "exposicion_s": 100
+        },
+        "B": {
+          "etiqueta": "T₀ + 30 min",
+          "exposicion_s": 100
+        }
+      },
+      "bandas": [
+        {
+          "id": "ccd",
+          "nombre": "NEOSSat CCD",
+          "longitud": 0.7,
+          "color": "#cbd5e1",
+          "descripcion": "Óptico de banda ancha · sin filtro",
+          "imagenes": {
+            "A": "/assets/regions/neossat_ccd_epocaA.png",
+            "B": "/assets/regions/neossat_ccd_epocaB.png"
+          }
+        }
+      ],
+      "fuente": "Simulación local inspirada en NEOSSat (Agencia Espacial Canadiense · CADC); no son datos de la misión",
+      "candidato": {
+        "tipo": "asteroide cercano (NEO, simulado)",
+        "descripcion": "Trazo corto (el telescopio sigue a las estrellas) que salta de posición entre exposiciones",
+        "posiciones": {
+          "A": {
+            "x": 120,
+            "y": 380,
+            "ra": 150.2325,
+            "dec": 11.79079
+          },
+          "B": {
+            "x": 283,
+            "y": 266,
+            "ra": 149.95353,
+            "dec": 11.98207
+          }
+        },
+        "desplazamiento_px": 198.4,
+        "desplazamiento_arcsec": 1200.0,
+        "velocidad_arcsec_min": 40.0,
+        "trazo_px": 11.0
       }
     }
   ]

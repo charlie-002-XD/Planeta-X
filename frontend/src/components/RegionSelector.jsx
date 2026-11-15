@@ -3,9 +3,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 // Selector de región (esquina superior derecha). Lista las regiones de regions.json.
 export default function RegionSelector({ regiones, region, onCambiar }) {
   const info =
-    region.tipo === 'real'
-      ? `${region.ra_hms ?? region.ra} ${region.dec_dms ?? region.dec} · Δt = ${region.delta}`
-      : `Δt = ${region.delta}`
+    region.tipo === 'sintetica'
+      ? `Δt = ${region.delta}`
+      : `${region.ra_hms ?? region.ra} ${region.dec_dms ?? region.dec} · Δt = ${region.delta}`
+  const nombre = (r) =>
+    r.tipo === 'real' ? `${r.designacion} · ${r.nombre}` : r.tipo === 'simulada' ? r.nombre : `${r.nombre} (sintética)`
 
   return (
     <div className="flex flex-col items-end gap-1 font-mono text-xs text-slate-500">
@@ -20,7 +22,7 @@ export default function RegionSelector({ regiones, region, onCambiar }) {
           >
             {regiones.map((r) => (
               <option key={r.id} value={r.id} className="bg-space-900">
-                {r.tipo === 'real' ? `${r.designacion} · ${r.nombre}` : `${r.nombre} (sintética)`}
+                {nombre(r)}
               </option>
             ))}
           </select>

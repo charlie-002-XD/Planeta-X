@@ -8,6 +8,7 @@ frontend/   React + Vite + TailwindCSS + Framer Motion (.jsx)
 backend/    API REST en PHP puro (api/hallazgos.php → data/hallazgos.json)
 scripts/    generar_muestras.py: imágenes sintéticas Época A / Época B
             fetch_irsa_samples.py: recortes reales WISE (M42, M45) desde IRSA
+                                   + región simulada NEOSSat-NEO-01 (local)
 docker/     configuración de Apache para la imagen de despliegue
 Dockerfile  imagen única (frontend compilado + API PHP) para Render / Railway
 ```
@@ -56,6 +57,23 @@ El visor usa 4 cortes representativos del rango de SPHEREx (las imágenes son si
 Un asteroide brilla por luz solar reflejada en las bandas cortas y, por emisión térmica, cada vez más hacia
 5 µm. Comparar su brillo entre bandas da pistas sobre su tamaño y albedo; el hallazgo guarda en qué
 banda y época se marcó.
+
+## Fuentes Científicas e Inspiración Oficial
+
+Planeta-X reúne en un solo visor varias herramientas y archivos oficiales que el reto NASA Space Apps /
+SPHEREx propone como punto de partida. Cada pieza de la app se inspira en una de ellas:
+
+| Recurso oficial | Qué aporta | Dónde se ve en Planeta-X |
+|---|---|---|
+| [WiseView](http://byw.tools/wiseview) (proyecto ciudadano Backyard Worlds, apoyado por la NASA) | Compara épocas de WISE/NEOWISE alternándolas en **parpadeo (blink)**: lo fijo no cambia y lo que se mueve "salta". | Modo **Parpadeo (Blink)** y slider A/B del comparador; vectores de trayectoria A → B. |
+| [NASA/IPAC IRSA](https://irsa.ipac.caltech.edu/) y [SPHEREx](https://science.nasa.gov/mission/spherex/) ([archivo SPHEREx en IRSA](https://irsa.ipac.caltech.edu/Missions/spherex.html)) | Archivo infrarrojo de la NASA que distribuye WISE/NEOWISE y los datos de SPHEREx. | `fetch_irsa_samples.py` pide recortes W1/W2 a IRSA, los calibra y los estira de FITS a PNG; la región sintética imita las bandas espectrales de SPHEREx. |
+| [Gaia DR3](https://www.cosmos.esa.int/web/gaia/dr3) (ESA) | Catálogo astrométrico de referencia: posiciones y movimientos propios de más de mil millones de estrellas. | Criterio para **descartar estrellas fijas**: un candidato que coincide con una fuente de Gaia en ambas épocas no es un objeto del Sistema Solar. Planeta-X no descarga el catálogo; es el siguiente paso natural de validación. |
+| [NEOSSat](https://www.asc-csa.gc.ca/eng/satellites/neossat/) (Agencia Espacial Canadiense, CSA) · [datos en CADC](https://www.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/en/neossat/) | Microsatélite que vigila **asteroides cercanos a la Tierra (NEO)**; sus imágenes ópticas se publican en el Canadian Astronomy Data Centre. | Región **NEOSSat-NEO-01 (Asteroide cercano)**: un NEO rápido cruza el campo entre dos exposiciones separadas 30 min, con su vector precargado. |
+
+**Regla de créditos y datos.** El repositorio solo incluye datos ligeros: recortes WISE de IRSA (≈2.4 MiB de
+FITS, que no se versionan) y regiones generadas en local. No se descargan catálogos completos (Gaia,
+NEOSSat) ni cubos de datos. La región NEOSSat-NEO-01 es una **simulación** al estilo de NEOSSat, no son
+imágenes de la misión.
 
 ## Puesta en marcha (desarrollo)
 
@@ -212,6 +230,9 @@ sintética y dos regiones reales: **M42** (Nebulosa de Orión) y **M45** (Pléya
   8 FITS de ~0.3 MB (≈2.4 MB en total). El script aborta si el total supera 15 MiB.
 - Los FITS quedan en `scripts/.cache_irsa/` (ignorado por git) para no repetir descargas.
 
+- `python scripts/fetch_irsa_samples.py --solo-locales` regenera solo las regiones locales (sin red) y conserva
+  M42/M45 tal como están en `regions.json`.
+
 Conversión FITS → PNG con `astropy`:
 1. `astroquery.ipac.irsa.Irsa.query_sia` consulta el índice SIA de IRSA: devuelve solo metadatos (URL, banda,
    fecha, centro de cada exposición). Se elige la exposición mejor centrada (A) o la más reciente (B).
@@ -244,7 +265,15 @@ opcional `(x2, y2)` en la Época B. Se marca con un segundo clic en la otra épo
 en Época B». El visor dibuja una línea punteada neón con flecha y la distancia `Δpx`, y el rombo se desliza al
 punto de la época visible: en Blink al alternar A/B, y en el slider según el lado del divisor donde cae el vector.
 `x2`/`y2` se guardan en el backend PHP (se envían juntos o ninguno), en `localStorage` y en la exportación CSV/JSON.
-Los datos de ejemplo del modo demo traen ya un vector en la región sintética, otro en M42 y otro en M45.
+Los datos de ejemplo del modo demo traen ya un vector en la región sintética, en M42, en M45 y en NEOSSat-NEO-01.
+
+**Región simulada NEOSSat-NEO-01 (Asteroide cercano).** La genera `fetch_irsa_samples.py` en local con NumPy,
+sin descargas: un campo óptico de 0.86° (512×512 px, ~6″/px) cerca de la eclíptica, con estrellas fijas, ruido
+de CCD y algunos rayos cósmicos que solo aparecen en una exposición (falsos positivos típicos). Como el telescopio
+sigue a las estrellas, el NEO se ve como un trazo corto durante cada exposición de 100 s y salta ~200 px
+(40″/min durante 30 min) entre la Época A (T₀) y la B (T₀ + 30 min). Sus posiciones están en
+`regions.json → candidato` y el modo demo trae su vector `(120, 380) → (283, 266)`. Hallazgos en esta región se
+guardan con la banda `ccd`.
 
 **Filtro por región.** Cada hallazgo guarda `region_id` (backend PHP y `localStorage`). El panel HALLAZGOS
 muestra por defecto **Esta región**; el interruptor **Todos** enseña los de todas las regiones. Exportar siempre
