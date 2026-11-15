@@ -178,7 +178,7 @@ const TEXTOS = {
 }
 
 // Textos que llegan en español desde regions.json o los datos de ejemplo (descripciones de banda, nombres, comentarios).
-const DATOS_EN = {
+const DATOS_EN = new Map(Object.entries({
   'IR cercano corto · estrellas calientes': 'Short near-IR · hot stars',
   'Pico estelar · polvo tenue': 'Stellar peak · faint dust',
   'Polvo cálido · hielos': 'Warm dust · ices',
@@ -197,7 +197,7 @@ const DATOS_EN = {
   'Candidato en movimiento delante de la Nebulosa de Orión': 'Moving candidate in front of the Orion Nebula',
   'Candidato en movimiento junto a las Pléyades': 'Moving candidate next to the Pleiades',
   'NEO rápido: cruza ~20′ del campo en 30 min': 'Fast NEO: crosses ~20′ of the field in 30 min',
-}
+}))
 
 const PATRONES_EN = [
   [/(\d+(?:[.,]\d+)?)\s*años\b/g, '$1 years'],
@@ -239,7 +239,7 @@ export function IdiomaProvider({ children }) {
   const td = useCallback(
     (texto) => {
       if (idioma === 'es' || typeof texto !== 'string') return texto
-      return DATOS_EN[texto] ?? PATRONES_EN.reduce((s, [re, rep]) => s.replace(re, rep), texto)
+      return DATOS_EN.get(texto) ?? PATRONES_EN.reduce((s, [re, rep]) => s.replace(re, rep), texto)
     },
     [idioma],
   )
