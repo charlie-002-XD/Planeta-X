@@ -21,3 +21,18 @@ export async function enviarHallazgo(hallazgo) {
   })
   return leerRespuesta(res)
 }
+
+/** Descarga todos los hallazgos guardados en el backend como .csv o .json. */
+export async function exportarHallazgos(formato) {
+  const res = await fetch(`${URL_HALLAZGOS}?formato=${encodeURIComponent(formato)}`)
+  if (!res.ok) await leerRespuesta(res)
+  const nombre =
+    /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? `hallazgos.${formato}`
+  const url = URL.createObjectURL(await res.blob())
+  const enlace = Object.assign(document.createElement('a'), { href: url, download: nombre })
+  document.body.appendChild(enlace)
+  enlace.click()
+  enlace.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return nombre
+}

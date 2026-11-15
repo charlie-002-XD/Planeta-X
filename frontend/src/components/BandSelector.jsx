@@ -1,9 +1,8 @@
 import { motion } from 'framer-motion'
-import { BANDAS } from '../bandas.js'
 
 // Selector lateral de bandas. El resaltado activo usa `layoutId`: Framer Motion
 // anima automáticamente su posición/tamaño de una tarjeta a otra.
-export default function BandSelector({ bandaActiva, onCambiar }) {
+export default function BandSelector({ bandas, titulo = 'Bandas IR cercano', rango = ['0.75 µm', '5.0 µm'], bandaActiva, onCambiar }) {
   return (
     <motion.nav
       initial={{ x: -40, opacity: 0 }}
@@ -13,9 +12,9 @@ export default function BandSelector({ bandaActiva, onCambiar }) {
       aria-label="Bandas espectrales"
     >
       <h2 className="px-2 pb-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-        Bandas IR cercano
+        {titulo}
       </h2>
-      {BANDAS.map((banda, i) => {
+      {bandas.map((banda, i) => {
         const activa = banda.id === bandaActiva
         return (
           <motion.button
@@ -54,11 +53,11 @@ export default function BandSelector({ bandaActiva, onCambiar }) {
       <div className="mt-2 px-2">
         <div
           className="h-1.5 w-full rounded-full"
-          style={{ background: `linear-gradient(90deg, ${BANDAS.map((b) => b.color).join(', ')})` }}
+          style={{ background: `linear-gradient(90deg, ${bandas.length > 1 ? bandas.map((b) => b.color).join(', ') : `${bandas[0].color}, ${bandas[0].color}`})` }}
         />
         <div className="mt-1 flex justify-between font-mono text-[10px] text-slate-500">
-          <span>0.75 µm</span>
-          <span>5.0 µm</span>
+          <span>{rango[0]}</span>
+          <span>{rango[1]}</span>
         </div>
       </div>
     </motion.nav>
