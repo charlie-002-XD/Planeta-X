@@ -13,7 +13,8 @@ const TIEMPO_MAXIMO_MS = 5000
 export const MODO_SERVIDOR = 'servidor'
 export const MODO_LOCAL = 'local'
 
-const CLAVE_LOCAL = 'planeta-x:hallazgos:v1'
+const CLAVE_LOCAL = 'planeta_x_findings_v1'
+const CLAVE_LOCAL_ANTERIOR = 'planeta-x:hallazgos:v1'
 
 // Ejemplos: el objeto móvil sintético y los candidatos inyectados en M42/M45 (regions.json → candidato),
 // con su vector de trayectoria (x, y) en la Época A → (x2, y2) en la Época B.
@@ -25,7 +26,7 @@ export const HALLAZGOS_DEMO = [
   { id: 5, region_id: 'neossat-neo-01', x: 120, y: 380, x2: 283, y2: 266, banda: 'ccd', epoca: 'A', tipo: 'asteroide', comentario: 'NEO rápido: cruza ~20′ del campo en 30 min', fecha: '2025-06-03T04:10:00Z' },
 ]
 
-/** Errores que no deben activar el modo demo (p. ej. validación 400 del backend). */
+/** Errores de validación del propio backend PHP (400 con `error` en texto): no activan el modo local. */
 class ErrorApi extends Error {}
 
 /** Indica que el backend no está disponible y conviene usar el respaldo local. */
@@ -37,10 +38,13 @@ function leerLocal() {
   // La copia en memoria manda: si localStorage deja de aceptar escrituras (cuota), lo guardado allí queda viejo.
   if (memoria) return memoria
   try {
-    const guardado = localStorage.getItem(CLAVE_LOCAL)
-    if (guardado !== null) {
+    for (const clave of [CLAVE_LOCAL, CLAVE_LOCAL_ANTERIOR]) {
+      const guardado = localStorage.getItem(clave)
+      if (guardado === null) continue
       const datos = JSON.parse(guardado)
-      if (Array.isArray(datos)) return (memoria = datos)
+      if (!Array.isArray(datos)) continue
+      if (clave !== CLAVE_LOCAL) escribirLocal(datos) // migra la clave antigua
+      return (memoria = datos)
     }
   } catch {
     // localStorage no disponible o JSON dañado: se parte de los datos de ejemplo.
@@ -80,22 +84,22 @@ async function pedir(opciones = {}) {
   } finally {
     clearTimeout(temporizador)
   }
-  // Un hosting estático devuelve 404/405, o index.html con 200 si reescribe todas las rutas.
+  // Un hosting estático (Vercel) responde 403/404/405 —a veces en JSON— o index.html con 200 si
+  // reescribe todas las rutas: cualquier respuesta que no sea JSON válido y ok activa el modo local,
+  // salvo los 400 de validación del backend PHP, que traen `error` como texto.
   const esJson = (res.headers.get('Content-Type') || '').includes('application/json')
-  if (!esJson || res.status === 404 || res.status === 405 || res.status >= 502) {
-    throw new SinServidor(`Backend no disponible (HTTP ${res.status})`)
-  }
-  const datos = await res.json().catch(() => ({}))
-  if (!res.ok) throw new ErrorApi(datos.error || `Error HTTP ${res.status}`)
+  const datos = esJson ? await res.json().catch(() => undefined) : undefined
+  if (res.status === 400 && typeof datos?.error === 'string') throw new ErrorApi(datos.error)
+  if (!res.ok || datos === undefined) throw new SinServidor(`Backend no disponible (HTTP ${res.status})`)
   return datos
 }
 
 export async function obtenerHallazgos() {
   try {
     const hallazgos = await pedir({ headers: { Accept: 'application/json' } })
+    if (!Array.isArray(hallazgos)) throw new SinServidor('Respuesta inesperada del backend')
     return { hallazgos, modo: MODO_SERVIDOR }
-  } catch (err) {
-    if (!(err instanceof SinServidor)) throw err
+  } catch {
     return { hallazgos: leerLocal(), modo: MODO_LOCAL }
   }
 }
@@ -109,9 +113,10 @@ export async function enviarHallazgo(hallazgo, modo = MODO_SERVIDOR) {
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(hallazgo),
       })
+      if (!datos?.hallazgo) throw new SinServidor('Respuesta inesperada del backend')
       return { hallazgo: datos.hallazgo, modo: MODO_SERVIDOR }
     } catch (err) {
-      if (!(err instanceof SinServidor)) throw err
+      if (err instanceof ErrorApi) throw err
     }
   }
   return { hallazgo: guardarLocal(hallazgo), modo: MODO_LOCAL }
