@@ -1,5 +1,5 @@
 {
-  "generado": "2026-11-15T04:09:55+00:00",
+  "generado": "2026-11-15T05:04:57+00:00",
   "descargado_bytes": 2525760,
   "regiones": [
     {
@@ -126,7 +126,35 @@
           }
         }
       ],
-      "fuente": "NASA/IPAC Infrared Science Archive (IRSA) · WISE/NEOWISE"
+      "fuente": "NASA/IPAC Infrared Science Archive (IRSA) · WISE/NEOWISE",
+      "candidato": {
+        "tipo": "asteroide (sintético, inyectado)",
+        "descripcion": "Fuente puntual gaussiana (PSF de WISE) añadida al flujo real; cambia de posición entre épocas",
+        "posiciones": {
+          "A": {
+            "x": 429,
+            "y": 305,
+            "ra": 83.75477,
+            "dec": -5.4062
+          },
+          "B": {
+            "x": 392,
+            "y": 274,
+            "ra": 83.76884,
+            "dec": -5.39434
+          }
+        },
+        "desplazamiento_px": 49.1,
+        "desplazamiento_arcsec": 66.1,
+        "fwhm_arcsec": {
+          "W1": 6.1,
+          "W2": 6.4
+        },
+        "pico_sigmas": {
+          "W1": 25.0,
+          "W2": 40.0
+        }
+      }
     },
     {
       "id": "m45",
@@ -186,7 +214,35 @@
           }
         }
       ],
-      "fuente": "NASA/IPAC Infrared Science Archive (IRSA) · WISE/NEOWISE"
+      "fuente": "NASA/IPAC Infrared Science Archive (IRSA) · WISE/NEOWISE",
+      "candidato": {
+        "tipo": "asteroide (sintético, inyectado)",
+        "descripcion": "Fuente puntual gaussiana (PSF de WISE) añadida al flujo real; cambia de posición entre épocas",
+        "posiciones": {
+          "A": {
+            "x": 233,
+            "y": 108,
+            "ra": 56.6664,
+            "dec": 24.2262
+          },
+          "B": {
+            "x": 282,
+            "y": 97,
+            "ra": 56.6489,
+            "dec": 24.22976
+          }
+        },
+        "desplazamiento_px": 50.1,
+        "desplazamiento_arcsec": 58.9,
+        "fwhm_arcsec": {
+          "W1": 6.1,
+          "W2": 6.4
+        },
+        "pico_sigmas": {
+          "W1": 25.0,
+          "W2": 40.0
+        }
+      }
     }
   ]
 }

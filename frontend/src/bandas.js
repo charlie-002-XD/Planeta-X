@@ -50,4 +50,5 @@ export async function cargarRegiones() {
   return [sintetica, ...reales].map(conRutasPublicas)
 }
 
-export const regionDeHallazgo = (h) => h.region ?? REGION_POR_DEFECTO
+// `region` (sin _id) es el campo de los hallazgos guardados antes de `region_id`.
+export const regionDeHallazgo = (h) => h.region_id ?? h.region ?? REGION_POR_DEFECTO
