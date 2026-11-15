@@ -22,6 +22,7 @@ export const HALLAZGOS_DEMO = [
   { id: 2, region_id: REGION_POR_DEFECTO, x: 470, y: 503, banda: 'banda4', epoca: 'B', tipo: 'asteroide', comentario: 'Sigue visible a 3.8 µm: emisión térmica', fecha: '2025-12-01T03:20:00Z' },
   { id: 3, region_id: 'm42', x: 429, y: 305, x2: 392, y2: 274, banda: 'w1', epoca: 'A', tipo: 'asteroide', comentario: 'Candidato en movimiento delante de la Nebulosa de Orión', fecha: '2025-06-02T01:40:00Z' },
   { id: 4, region_id: 'm45', x: 233, y: 108, x2: 282, y2: 97, banda: 'w1', epoca: 'A', tipo: 'asteroide', comentario: 'Candidato en movimiento junto a las Pléyades', fecha: '2025-06-02T02:05:00Z' },
+  { id: 5, region_id: 'neossat-neo-01', x: 120, y: 380, x2: 283, y2: 266, banda: 'ccd', epoca: 'A', tipo: 'asteroide', comentario: 'NEO rápido: cruza ~20′ del campo en 30 min', fecha: '2025-06-03T04:10:00Z' },
 ]
 
 /** Errores que no deben activar el modo demo (p. ej. validación 400 del backend). */

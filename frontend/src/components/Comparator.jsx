@@ -305,7 +305,7 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
         {/* Etiquetas de época */}
         {modo === 'slider' ? (
           <>
-            <EtiquetaEpoca className="left-3">ÉPOCA A{etiquetaA && region.tipo === 'real' ? ` · ${etiquetaA}` : ''}</EtiquetaEpoca>
+            <EtiquetaEpoca className="left-3">ÉPOCA A{etiquetaA && region.tipo !== 'sintetica' ? ` · ${etiquetaA}` : ''}</EtiquetaEpoca>
             <EtiquetaEpoca className="right-3">ÉPOCA B · {etiquetaB}</EtiquetaEpoca>
           </>
         ) : (
@@ -325,7 +325,7 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
                 transition={{ duration: 0.12 }}
               >
                 ÉPOCA {epocaVisible}
-                {epocaVisible === 'B' ? ` · ${etiquetaB}` : region.tipo === 'real' && etiquetaA ? ` · ${etiquetaA}` : ''}
+                {epocaVisible === 'B' ? ` · ${etiquetaB}` : region.tipo !== 'sintetica' && etiquetaA ? ` · ${etiquetaA}` : ''}
               </motion.span>
             </AnimatePresence>
           </div>

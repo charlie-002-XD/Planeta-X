@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import StarfieldCanvas from './components/StarfieldCanvas.jsx'
 import BandSelector from './components/BandSelector.jsx'
+import Creditos from './components/Creditos.jsx'
 import Comparator from './components/Comparator.jsx'
 import ViewerControls from './components/ViewerControls.jsx'
 import ReportPanel from './components/ReportPanel.jsx'
@@ -124,8 +125,8 @@ export default function App() {
         <div className="lg:sticky lg:top-5 lg:self-start">
           <BandSelector
             bandas={region.bandas}
-            titulo={region.tipo === 'real' ? 'Bandas WISE (IR)' : 'Bandas IR cercano'}
-            rango={region.tipo === 'real' ? ['3.4 µm', '4.6 µm'] : undefined}
+            titulo={region.titulo_bandas ?? (region.tipo === 'real' ? 'Bandas WISE (IR)' : 'Bandas IR cercano')}
+            rango={region.rango_bandas ?? (region.tipo === 'real' ? ['3.4 µm', '4.6 µm'] : undefined)}
             bandaActiva={banda}
             onCambiar={setBanda}
           />
@@ -168,6 +169,8 @@ export default function App() {
           onRecargar={cargarHallazgos}
         />
       </main>
+
+      <Creditos />
 
       <AnimatePresence>
         {aviso && (

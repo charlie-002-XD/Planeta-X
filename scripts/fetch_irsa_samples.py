@@ -19,10 +19,16 @@ sintético: una fuente puntual con el PSF gaussiano de WISE que cambia de (X, Y)
 Época A y la B. Se suma en flujo calibrado, antes del estiramiento, así que pasa por el mismo
 procesado que las estrellas reales. Su posición queda en regions.json (`candidato`).
 
+Además genera en local (sin descargas) la región `NEOSSat-NEO-01`: un campo óptico simulado al
+estilo de NEOSSat (CSA), con un asteroide cercano que cruza el campo en 30 min y deja un trazo
+corto en cada exposición. Con --solo-locales solo se regenera esa región y se conservan M42/M45
+tal como están en regions.json (no se consulta IRSA).
+
 Uso:
     pip install -r scripts/requirements-irsa.txt
     python scripts/fetch_irsa_samples.py
     python scripts/fetch_irsa_samples.py --sin-candidato   # solo el cielo real
+    python scripts/fetch_irsa_samples.py --solo-locales    # solo regiones generadas en local
 """
 
 from __future__ import annotations
@@ -118,6 +124,121 @@ REGION_SINTETICA = {
         ]
     ],
 }
+
+
+# Campo simulado estilo NEOSSat (microsatélite de la CSA, telescopio de 15 cm y CCD óptico sin filtro
+# dedicado a asteroides cercanos y satélites). El telescopio sigue a las estrellas, así que un NEO
+# rápido aparece como un trazo corto que salta de posición entre dos exposiciones separadas 30 min.
+NEOSSAT = {
+    "id": "neossat-neo-01",
+    "nombre": "NEOSSat-NEO-01 (Asteroide cercano)",
+    "designacion": "NEOSSat-NEO-01",
+    "centro": (150.0, 12.0),  # cerca de la eclíptica, donde se mueven la mayoría de los asteroides
+    "campo_grados": 0.86,
+    "exposicion_s": 100,
+    "delta_min": 30,
+    "velocidad_arcsec_min": 40.0,
+    "angulo_grados": 35.0,  # dirección del movimiento en el PNG, desde +x hacia arriba
+    "inicio_px": (120.0, 380.0),  # (x, y) del NEO en la Época A, en píxeles del PNG
+    "n_estrellas": 700,
+    "rayos_cosmicos": 6,  # por época: falsos positivos que aparecen en una sola imagen
+    "fwhm_px": 2.2,
+    "pico_neo_sigmas": 45.0,
+    "semilla": 2013,
+    "banda": ("ccd", "NEOSSat CCD", 0.7, "#cbd5e1", "Óptico de banda ancha · sin filtro"),
+}
+
+
+def generar_region_neossat() -> dict:
+    """Genera los PNG A/B de NEOSSat-NEO-01 (numpy, sin descargas) y devuelve sus metadatos."""
+    cfg = NEOSSAT
+    rng = np.random.default_rng(cfg["semilla"])
+    escala = cfg["campo_grados"] * 3600 / TAMANO_PX  # ″/px
+    sigma = cfg["fwhm_px"] / 2.3548
+    filas, columnas = np.mgrid[0:TAMANO_PX, 0:TAMANO_PX]
+
+    def psf(x: float, y: float) -> np.ndarray:
+        return np.exp(-((columnas - x) ** 2 + (filas - y) ** 2) / (2 * sigma**2))
+
+    # Estrellas fijas comunes a las 2 épocas: flujos con ley de potencias (pocas brillantes, muchas débiles).
+    n = cfg["n_estrellas"]
+    xs, ys = rng.uniform(0, TAMANO_PX, n), rng.uniform(0, TAMANO_PX, n)
+    flujos = 4.0 * (1 - rng.random(n)) ** -1.4
+    estrellas = np.zeros((TAMANO_PX, TAMANO_PX))
+    for x, y, f in zip(xs, ys, flujos):
+        r = int(np.ceil(4 * sigma + np.log10(f)))
+        x0, x1, y0, y1 = max(int(x) - r, 0), min(int(x) + r + 1, TAMANO_PX), max(int(y) - r, 0), min(int(y) + r + 1, TAMANO_PX)
+        yy, xx = np.mgrid[y0:y1, x0:x1]
+        estrellas[y0:y1, x0:x1] += f * np.exp(-((xx - x) ** 2 + (yy - y) ** 2) / (2 * sigma**2))
+
+    angulo = np.radians(cfg["angulo_grados"])
+    direccion = np.array([np.cos(angulo), -np.sin(angulo)])  # y del PNG crece hacia abajo
+    paso_px = cfg["velocidad_arcsec_min"] * cfg["delta_min"] / escala
+    trazo_px = cfg["velocidad_arcsec_min"] * cfg["exposicion_s"] / 60 / escala
+    inicio = np.array(cfg["inicio_px"])
+    posiciones_px = {"A": inicio, "B": inicio + paso_px * direccion}
+
+    banda_id, banda_nombre, longitud, color, descripcion = cfg["banda"]
+    fondo, ruido = 20.0, 1.0
+    norma = LogStretch(a=300) + ManualInterval(-2 * ruido, 300.0)  # intervalo primero, luego log
+    imagenes = {}
+    for epoca, centro_neo in posiciones_px.items():
+        cielo = fondo + estrellas + rng.normal(0, ruido, estrellas.shape)
+        # NEO: PSF integrada a lo largo del trazo de la exposición, centrada en su posición.
+        neo = sum(psf(*(centro_neo + t * trazo_px * direccion)) for t in np.linspace(-0.5, 0.5, 15)) / 15
+        cielo += cfg["pico_neo_sigmas"] * ruido * neo / neo.max()
+        for _ in range(cfg["rayos_cosmicos"]):  # impactos de 1-2 px que no se repiten entre épocas
+            x, y = rng.integers(0, TAMANO_PX - 1, size=2)
+            cielo[y : y + rng.integers(1, 3), x : x + rng.integers(1, 3)] += rng.uniform(40, 120)
+        nombre_png = f"neossat_{banda_id}_epoca{epoca}.png"
+        a_png_arriba(cielo - fondo, norma, color, SALIDA / nombre_png)
+        imagenes[epoca] = f"/assets/regions/{nombre_png}"
+
+    centro = SkyCoord(*cfg["centro"], unit="deg")
+    destino = wcs_destino(centro, cfg["campo_grados"])
+    posiciones = {}
+    for epoca, (x, y) in posiciones_px.items():
+        cielo = destino.pixel_to_world(x, TAMANO_PX - 1 - y)  # el WCS usa la fila 0 abajo
+        posiciones[epoca] = {"x": round(x), "y": round(y), "ra": round(cielo.ra.deg, 5), "dec": round(cielo.dec.deg, 5)}
+    print(
+        f"  ✔ NEOSSat-NEO-01: A({posiciones['A']['x']}, {posiciones['A']['y']}) → "
+        f"B({posiciones['B']['x']}, {posiciones['B']['y']}) · {paso_px:.0f} px en {cfg['delta_min']} min"
+    )
+    return {
+        "id": cfg["id"],
+        "nombre": cfg["nombre"],
+        "designacion": cfg["designacion"],
+        "tipo": "simulada",
+        "descripcion": "Campo óptico simulado estilo NEOSSat (CSA): un asteroide cercano cruza el campo entre 2 exposiciones",
+        "ra": centro.ra.deg,
+        "dec": centro.dec.deg,
+        "ra_hms": centro.ra.to_string(u.hour, sep=":", precision=1),
+        "dec_dms": centro.dec.to_string(u.deg, sep=":", precision=0, alwayssign=True),
+        "campo_grados": cfg["campo_grados"],
+        "tamano_px": TAMANO_PX,
+        "escala_arcsec_px": round(escala, 3),
+        "delta": f"{cfg['delta_min']} min",
+        "banda_inicial": banda_id,
+        "titulo_bandas": "NEOSSat · CCD óptico",
+        "rango_bandas": ["0.4 µm", "1.0 µm"],
+        "epocas": {
+            "A": {"etiqueta": "T₀", "exposicion_s": cfg["exposicion_s"]},
+            "B": {"etiqueta": f"T₀ + {cfg['delta_min']} min", "exposicion_s": cfg["exposicion_s"]},
+        },
+        "bandas": [
+            {"id": banda_id, "nombre": banda_nombre, "longitud": longitud, "color": color, "descripcion": descripcion, "imagenes": imagenes}
+        ],
+        "fuente": "Simulación local inspirada en NEOSSat (Agencia Espacial Canadiense · CADC); no son datos de la misión",
+        "candidato": {
+            "tipo": "asteroide cercano (NEO, simulado)",
+            "descripcion": "Trazo corto (el telescopio sigue a las estrellas) que salta de posición entre exposiciones",
+            "posiciones": posiciones,
+            "desplazamiento_px": round(paso_px, 1),
+            "desplazamiento_arcsec": round(paso_px * escala, 1),
+            "velocidad_arcsec_min": cfg["velocidad_arcsec_min"],
+            "trazo_px": round(trazo_px, 1),
+        },
+    }
 
 
 class Presupuesto:
@@ -298,13 +419,18 @@ def inyectar_fuente(datos: np.ndarray, fila: float, columna: float, sigma_px: fl
     return datos + pico * psf
 
 
-def a_png(datos: np.ndarray, norma: BaseTransform, color: str, ruta: Path) -> None:
+def a_png_arriba(datos: np.ndarray, norma: BaseTransform, color: str, ruta: Path) -> None:
+    """Guarda `datos` (fila 0 arriba, como el PNG) estirados con `norma` y teñidos con `color`."""
     valores = norma(datos, clip=True)  # 0..1 tras el estiramiento log
     tinte = np.array([int(color[i : i + 2], 16) for i in (1, 3, 5)]) / 255
     tinte = 0.35 + 0.65 * tinte / tinte.max()  # tinte suave: las estrellas siguen siendo blancas
     rgb = np.clip(valores[..., None] * tinte, 0, 1)
+    Image.fromarray((rgb * 255).astype(np.uint8), "RGB").save(ruta, optimize=True)
+
+
+def a_png(datos: np.ndarray, norma: BaseTransform, color: str, ruta: Path) -> None:
     # FITS guarda la fila 0 abajo (y crece hacia el norte); en PNG la fila 0 es la de arriba.
-    Image.fromarray((np.flipud(rgb) * 255).astype(np.uint8), "RGB").save(ruta, optimize=True)
+    a_png_arriba(np.flipud(datos), norma, color, ruta)
 
 
 def procesar_region(rid, nombre, designacion, respaldo, presupuesto, con_candidato=True) -> dict:
@@ -440,11 +566,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--limpiar-cache", action="store_true", help="borra los FITS descargados al terminar")
     parser.add_argument("--sin-candidato", action="store_true", help="no inyecta el candidato transitorio sintético")
+    parser.add_argument(
+        "--solo-locales", action="store_true", help="solo regenera las regiones locales; conserva M42/M45 de regions.json"
+    )
     args = parser.parse_args()
 
     SALIDA.mkdir(parents=True, exist_ok=True)
     presupuesto = Presupuesto(PRESUPUESTO_BYTES)
-    regiones = [REGION_SINTETICA] + [procesar_region(*r, presupuesto, not args.sin_candidato) for r in REGIONES]
+    if args.solo_locales:
+        anterior = json.loads((SALIDA / "regions.json").read_text(encoding="utf-8"))
+        presupuesto.usado = anterior.get("descargado_bytes", 0)
+        reales = [r for r in anterior["regiones"] if r.get("tipo") == "real"]
+    else:
+        reales = [procesar_region(*r, presupuesto, not args.sin_candidato) for r in REGIONES]
+    regiones = [REGION_SINTETICA, *reales, generar_region_neossat()]
 
     catalogo = {
         "generado": datetime.now(timezone.utc).isoformat(timespec="seconds"),
