@@ -159,6 +159,8 @@ def ordenar(exposiciones: list[dict], epoca: str) -> list[dict]:
 
 def descargar_recorte(url: str, centro: SkyCoord, destino: Path, presupuesto: Presupuesto) -> fits.HDUList:
     """Pide a IRSA un recorte de 2·RADIO de lado (el servidor recorta el FITS original)."""
+    # El centro forma parte del nombre: si cambian las coordenadas resueltas, se pide un recorte nuevo.
+    destino = destino.with_name(f"{destino.stem}_{centro.ra.deg:.4f}{centro.dec.deg:+.4f}{destino.suffix}")
     if destino.exists():  # ya descargado en una ejecución anterior: cuenta igual para el límite
         presupuesto.sumar(destino.stat().st_size)
         return fits.open(destino)
