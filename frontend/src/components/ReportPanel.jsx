@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { regionDeHallazgo } from '../bandas.js'
-import { exportarHallazgos } from '../api.js'
+import { MODO_LOCAL, exportarHallazgos } from '../api.js'
 
 const TIPOS = ['asteroide', 'cometa', 'planeta']
 
-export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi, onEnviar, onCancelar, onRecargar }) {
+export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi, modoDatos, onEnviar, onCancelar, onRecargar }) {
   const [tipo, setTipo] = useState('asteroide')
   const [comentario, setComentario] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -118,22 +118,21 @@ export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi,
 
       <div className="panel flex min-h-0 flex-1 flex-col p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+          <h2 className="whitespace-nowrap text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
             Hallazgos <span className="text-slate-500">({hallazgos.length})</span>
           </h2>
           <div className="flex items-center gap-2">
-            <span
-              className={`h-2 w-2 rounded-full ${estadoApi === 'ok' ? 'bg-emerald-400' : estadoApi === 'error' ? 'bg-rose-400' : 'bg-amber-300'}`}
-              title={`API: ${estadoApi}`}
-            />
             <button type="button" onClick={onRecargar} className="text-xs text-slate-400 hover:text-cyan-200">
               Recargar
             </button>
-            <MenuExportar deshabilitado={estadoApi !== 'ok' || hallazgos.length === 0} />
+            <MenuExportar modoDatos={modoDatos} deshabilitado={estadoApi !== 'ok' || hallazgos.length === 0} />
           </div>
         </div>
+        <div className="mt-2">
+          <IndicadorModo estadoApi={estadoApi} modoDatos={modoDatos} />
+        </div>
         {estadoApi === 'error' && (
-          <p className="mt-2 text-xs text-rose-300">No se pudo conectar con el backend PHP (¿está corriendo en :8000?).</p>
+          <p className="mt-2 text-xs text-rose-300">El backend PHP respondió con un error. Prueba a recargar.</p>
         )}
         <ul className="mt-3 flex max-h-80 flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none">
           <AnimatePresence initial={false}>
@@ -172,8 +171,32 @@ export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi,
   )
 }
 
-// Botón discreto "⤓ Exportar" con un pequeño menú CSV / JSON (descarga desde el backend PHP).
-function MenuExportar({ deshabilitado }) {
+function IndicadorModo({ estadoApi, modoDatos }) {
+  const local = modoDatos === MODO_LOCAL
+  const [texto, punto, ayuda] =
+    estadoApi === 'cargando'
+      ? ['Conectando…', 'bg-amber-300 animate-pulse', 'Consultando el backend PHP']
+      : estadoApi === 'error'
+        ? ['Error del servidor', 'bg-rose-400', 'El backend PHP respondió con un error']
+        : local
+          ? ['Modo demo local', 'bg-amber-300', 'Sin backend PHP: los hallazgos se guardan en este navegador (localStorage)']
+          : ['Servidor PHP conectado', 'bg-emerald-400', 'Los hallazgos se guardan en el backend PHP']
+  return (
+    <span
+      title={ayuda}
+      aria-live="polite"
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 font-mono text-[10px] ${
+        local && estadoApi === 'ok' ? 'border-amber-300/30 text-amber-200/90' : 'border-white/10 text-slate-400'
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${punto}`} />
+      {texto}
+    </span>
+  )
+}
+
+// Botón discreto "⤓ Exportar" con un pequeño menú CSV / JSON (backend PHP o, en modo demo, localStorage).
+function MenuExportar({ modoDatos, deshabilitado }) {
   const [abierto, setAbierto] = useState(false)
   const [estado, setEstado] = useState('')
   const ref = useRef(null)
@@ -201,7 +224,7 @@ function MenuExportar({ deshabilitado }) {
     setAbierto(false)
     setEstado('descargando')
     try {
-      await exportarHallazgos(formato)
+      await exportarHallazgos(formato, modoDatos)
       setEstado('ok')
     } catch {
       setEstado('error')

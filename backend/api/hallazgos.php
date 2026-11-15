@@ -7,12 +7,13 @@
  *   GET  /api/hallazgos.php?formato=json   -> descarga hallazgos.json
  *   POST /api/hallazgos.php                -> guarda { x, y, banda, epoca, comentario, tipo?, region? }
  *
- * Los datos se persisten en backend/data/hallazgos.json.
+ * Los datos se persisten en backend/data/hallazgos.json (o en la ruta de HALLAZGOS_ARCHIVO).
  */
 
 declare(strict_types=1);
 
-const ARCHIVO_DATOS = __DIR__ . '/../data/hallazgos.json';
+// Ruta configurable con HALLAZGOS_ARCHIVO (p. ej. un disco persistente en Render/Railway).
+define('ARCHIVO_DATOS', getenv('HALLAZGOS_ARCHIVO') ?: __DIR__ . '/../data/hallazgos.json');
 // banda1..4: región sintética · w1/w2: WISE 3.4 / 4.6 µm (regiones reales).
 const BANDAS_VALIDAS = ['banda1', 'banda2', 'banda3', 'banda4', 'w1', 'w2'];
 const PATRON_REGION = '/^[a-z0-9][a-z0-9+\-]{0,39}$/';

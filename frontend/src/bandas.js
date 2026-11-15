@@ -6,9 +6,23 @@ export const BANDAS = [
   { id: 'banda4', nombre: 'Banda 4', longitud: 3.8, color: '#fb923c', descripcion: 'IR largo · nebulosas y PAH' },
 ].map((b) => ({ ...b, imagenes: { A: `/assets/${b.id}_epocaA.png`, B: `/assets/${b.id}_epocaB.png` } }))
 
+// Antepone BASE_URL de Vite (p. ej. /Planeta-X/ en GitHub Pages) a las rutas absolutas de public/.
+// Idempotente: una ruta que ya lleva la base (o una URL completa) se deja igual.
+const BASE_PUBLICA = import.meta.env.BASE_URL
+export const rutaPublica = (ruta) =>
+  /^(?:[a-z]+:)?\/\//i.test(ruta) || ruta.startsWith(BASE_PUBLICA) ? ruta : `${BASE_PUBLICA}${ruta.replace(/^\//, '')}`
+
+const conRutasPublicas = (region) => ({
+  ...region,
+  bandas: region.bandas.map((b) => ({
+    ...b,
+    imagenes: { A: rutaPublica(b.imagenes.A), B: rutaPublica(b.imagenes.B) },
+  })),
+})
+
 export const REGION_POR_DEFECTO = 'spx-j0412+53'
 
-export const REGION_SINTETICA = {
+export const REGION_SINTETICA = conRutasPublicas({
   id: REGION_POR_DEFECTO,
   nombre: 'SPX-J0412+53',
   designacion: 'SPX-J0412+53',
@@ -18,9 +32,9 @@ export const REGION_SINTETICA = {
   banda_inicial: 'banda2',
   epocas: { A: { etiqueta: 'Época A' }, B: { etiqueta: '+6 meses' } },
   bandas: BANDAS,
-}
+})
 
-export const URL_REGIONES = '/assets/regions/regions.json'
+export const URL_REGIONES = rutaPublica('/assets/regions/regions.json')
 
 const regionValida = (r) =>
   r && typeof r.id === 'string' && Number(r.tamano_px) > 0 && Array.isArray(r.bandas) && r.bandas.length > 0 &&
@@ -33,7 +47,7 @@ export async function cargarRegiones() {
   const { regiones = [] } = await res.json()
   const reales = regiones.filter((r) => regionValida(r) && r.id !== REGION_POR_DEFECTO)
   const sintetica = regiones.find((r) => r.id === REGION_POR_DEFECTO && regionValida(r)) ?? REGION_SINTETICA
-  return [sintetica, ...reales]
+  return [sintetica, ...reales].map(conRutasPublicas)
 }
 
 export const regionDeHallazgo = (h) => h.region ?? REGION_POR_DEFECTO

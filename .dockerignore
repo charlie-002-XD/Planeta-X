@@ -1,0 +1,10 @@
+.git
+**/node_modules
+frontend/dist
+backend/data
+scripts
+**/__pycache__
+*.md
+!README.md
+Dockerfile
+.dockerignore

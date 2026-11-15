@@ -7,7 +7,7 @@ import ViewerControls from './components/ViewerControls.jsx'
 import ReportPanel from './components/ReportPanel.jsx'
 import RegionSelector from './components/RegionSelector.jsx'
 import { REGION_POR_DEFECTO, REGION_SINTETICA, cargarRegiones, regionDeHallazgo } from './bandas.js'
-import { enviarHallazgo, obtenerHallazgos } from './api.js'
+import { MODO_LOCAL, enviarHallazgo, hallazgosLocales, obtenerHallazgos } from './api.js'
 
 export default function App() {
   const [regiones, setRegiones] = useState([REGION_SINTETICA])
@@ -18,6 +18,7 @@ export default function App() {
   const [reproduciendo, setReproduciendo] = useState(true)
   const [hallazgos, setHallazgos] = useState([])
   const [estadoApi, setEstadoApi] = useState('cargando')
+  const [modoDatos, setModoDatos] = useState(null)
   const [pendiente, setPendiente] = useState(null)
   const [aviso, setAviso] = useState(null)
 
@@ -47,7 +48,9 @@ export default function App() {
   const cargarHallazgos = useCallback(async () => {
     try {
       setEstadoApi('cargando')
-      setHallazgos(await obtenerHallazgos())
+      const { hallazgos: lista, modo } = await obtenerHallazgos()
+      setHallazgos(lista)
+      setModoDatos(modo)
       setEstadoApi('ok')
     } catch {
       setEstadoApi('error')
@@ -65,7 +68,7 @@ export default function App() {
   }, [aviso])
 
   const enviar = async ({ tipo, comentario }) => {
-    const { hallazgo } = await enviarHallazgo({
+    const { hallazgo, modo } = await enviarHallazgo({
       x: pendiente.x,
       y: pendiente.y,
       banda: pendiente.banda,
@@ -73,8 +76,10 @@ export default function App() {
       epoca: pendiente.epoca,
       comentario,
       tipo,
-    })
-    setHallazgos((lista) => [...lista, hallazgo])
+    }, modoDatos)
+    // Si el servidor se cayó a mitad de sesión, la lista pasa a ser la local (que ya incluye el nuevo).
+    setHallazgos((lista) => (modo === MODO_LOCAL && modoDatos !== MODO_LOCAL ? hallazgosLocales() : [...lista, hallazgo]))
+    setModoDatos(modo)
     setEstadoApi('ok')
     setPendiente(null)
     setAviso(`Hallazgo #${hallazgo.id} registrado en (${hallazgo.x}, ${hallazgo.y})`)
@@ -134,6 +139,7 @@ export default function App() {
           pendiente={pendiente}
           hallazgos={hallazgos}
           estadoApi={estadoApi}
+          modoDatos={modoDatos}
           onEnviar={enviar}
           onCancelar={() => setPendiente(null)}
           onRecargar={cargarHallazgos}
