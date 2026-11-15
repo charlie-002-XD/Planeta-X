@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { desplazamientoPx } from '../bandas.js'
+import { useIdioma } from '../i18n.jsx'
 
 // Pulso de radar: 3 anillos que se expanden y desvanecen con retardo escalonado.
 export function RadarPulse({ xPct, yPct, color = '#22d3ee' }) {
@@ -59,6 +60,7 @@ export function MarcaPendiente({ xPct, yPct }) {
 export function MarcadorHallazgo({ hallazgo, xPct, yPct, color, atenuado }) {
   const left = `${xPct}%`
   const top = `${yPct}%`
+  const { t } = useIdioma()
   const dp = desplazamientoPx(hallazgo)
   return (
     <motion.div
@@ -79,8 +81,8 @@ export function MarcadorHallazgo({ hallazgo, xPct, yPct, color, atenuado }) {
       />
       <span className="pointer-events-none absolute left-4 top-2 z-20 hidden whitespace-nowrap rounded-md border border-white/10 bg-space-900/95 px-2 py-1 font-mono text-[11px] text-slate-200 group-hover:block">
         #{hallazgo.id} · ({hallazgo.x}, {hallazgo.y})
-        {dp !== null ? ` → (${hallazgo.x2}, ${hallazgo.y2}) · Δ ${dp.toFixed(1)} px` : ` · Época ${hallazgo.epoca}`}
-        {hallazgo.tipo ? ` · ${hallazgo.tipo}` : ''}
+        {dp !== null ? ` → (${hallazgo.x2}, ${hallazgo.y2}) · Δ ${dp.toFixed(1)} px` : ` · ${t('epoca.nombre', { epoca: hallazgo.epoca })}`}
+        {hallazgo.tipo ? ` · ${t(`tipo.${hallazgo.tipo}`)}` : ''}
       </span>
     </motion.div>
   )

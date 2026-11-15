@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EtiquetaDesplazamiento, MarcadorHallazgo, MarcaPendiente, RadarPulse, VectorTrayectoria } from './RadarPulse.jsx'
 import { desplazamientoPx, tieneDestino } from '../bandas.js'
+import { useIdioma } from '../i18n.jsx'
 
 const COLOR_PENDIENTE = '#67e8f9'
 
@@ -14,6 +15,7 @@ const limitar = (v, min, max) => Math.min(max, Math.max(min, v))
  * - Modo "blink": la Época B aparece/desaparece cada `intervalo` ms sobre la A.
  */
 export default function Comparator({ region, banda, modo, intervalo, reproduciendo, hallazgos, pendiente, onMarcar }) {
+  const { t, td } = useIdioma()
   const visorRef = useRef(null)
   const coordsRef = useRef(null)
   const posRef = useRef(50)
@@ -27,8 +29,8 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
 
   const TAMANO_IMAGEN = region.tamano_px
   const infoBanda = region.bandas.find((b) => b.id === banda) ?? region.bandas[0]
-  const etiquetaB = region.epocas?.B?.etiqueta ?? '+6 meses'
-  const etiquetaA = region.epocas?.A?.etiqueta
+  const etiquetaB = td(region.epocas?.B?.etiqueta) ?? t('epoca.b_por_defecto')
+  const etiquetaA = td(region.epocas?.A?.etiqueta)
 
   // Época en que se dibuja el rombo de un vector A→B. En blink, la visible; en el slider, la que muestra la imagen
   // en el punto medio del vector (a la izquierda del divisor se ve A y a la derecha B).
@@ -152,13 +154,13 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
           >
             <img
               src={infoBanda.imagenes.A}
-              alt={`Época A, ${infoBanda?.nombre}`}
+              alt={`${t('epoca.nombre', { epoca: 'A' })}, ${td(infoBanda?.nombre)}`}
               draggable={false}
               className="absolute inset-0 h-full w-full object-cover"
             />
             <motion.img
               src={infoBanda.imagenes.B}
-              alt={`Época B, ${infoBanda?.nombre}`}
+              alt={`${t('epoca.nombre', { epoca: 'B' })}, ${td(infoBanda?.nombre)}`}
               draggable={false}
               className="absolute inset-0 h-full w-full object-cover"
               style={modo === 'slider' ? { clipPath: 'inset(0 0 0 calc(var(--pos) * 1%))' } : undefined}
@@ -264,7 +266,7 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
               exit={{ opacity: 0, y: -6 }}
               className="pointer-events-none absolute left-1/2 top-12 z-10 -translate-x-1/2 whitespace-nowrap rounded-full border border-fuchsia-300/50 bg-black/70 px-3 py-1 font-mono text-[11px] text-fuchsia-100 backdrop-blur"
             >
-              Clic en la posición del objeto en la Época B
+              {t('visor.clic_destino')}
             </motion.div>
           )}
         </AnimatePresence>
@@ -280,7 +282,7 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
           <div
             role="slider"
             tabIndex={0}
-            aria-label="Divisor Época A / Época B"
+            aria-label={t('epoca.divisor')}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(posRef.current)}
@@ -305,8 +307,8 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
         {/* Etiquetas de época */}
         {modo === 'slider' ? (
           <>
-            <EtiquetaEpoca className="left-3">ÉPOCA A{etiquetaA && region.tipo !== 'sintetica' ? ` · ${etiquetaA}` : ''}</EtiquetaEpoca>
-            <EtiquetaEpoca className="right-3">ÉPOCA B · {etiquetaB}</EtiquetaEpoca>
+            <EtiquetaEpoca className="left-3">{t('epoca.mayus', { epoca: 'A' })}{etiquetaA && region.tipo !== 'sintetica' ? ` · ${etiquetaA}` : ''}</EtiquetaEpoca>
+            <EtiquetaEpoca className="right-3">{t('epoca.mayus', { epoca: 'B' })} · {etiquetaB}</EtiquetaEpoca>
           </>
         ) : (
           <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-3 py-1 font-mono text-xs backdrop-blur">
@@ -324,7 +326,7 @@ export default function Comparator({ region, banda, modo, intervalo, reproducien
                 exit={{ y: 8, opacity: 0 }}
                 transition={{ duration: 0.12 }}
               >
-                ÉPOCA {epocaVisible}
+                {t('epoca.mayus', { epoca: epocaVisible })}
                 {epocaVisible === 'B' ? ` · ${etiquetaB}` : region.tipo !== 'sintetica' && etiquetaA ? ` · ${etiquetaA}` : ''}
               </motion.span>
             </AnimatePresence>
