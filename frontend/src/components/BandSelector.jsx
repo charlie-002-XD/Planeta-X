@@ -1,18 +1,20 @@
 import { motion } from 'framer-motion'
+import { useIdioma } from '../i18n.jsx'
 
 // Selector lateral de bandas. El resaltado activo usa `layoutId`: Framer Motion
 // anima automáticamente su posición/tamaño de una tarjeta a otra.
-export default function BandSelector({ bandas, titulo = 'Bandas IR cercano', rango = ['0.75 µm', '5.0 µm'], bandaActiva, onCambiar }) {
+export default function BandSelector({ bandas, titulo, rango = ['0.75 µm', '5.0 µm'], bandaActiva, onCambiar }) {
+  const { t, td } = useIdioma()
   return (
     <motion.nav
       initial={{ x: -40, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 120, damping: 18 }}
       className="panel flex flex-col gap-2 p-3"
-      aria-label="Bandas espectrales"
+      aria-label={t('bandas.aria')}
     >
       <h2 className="px-2 pb-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-        {titulo}
+        {titulo ?? t('bandas.ir_cercano')}
       </h2>
       {bandas.map((banda, i) => {
         const activa = banda.id === bandaActiva
@@ -43,9 +45,9 @@ export default function BandSelector({ bandas, titulo = 'Bandas IR cercano', ran
             />
             <span className="relative flex flex-col">
               <span className="font-mono text-sm text-slate-100">
-                {banda.longitud.toFixed(1)} µm <span className="text-slate-500">· {banda.nombre}</span>
+                {banda.longitud.toFixed(1)} µm <span className="text-slate-500">· {td(banda.nombre)}</span>
               </span>
-              <span className="text-xs text-slate-400">{banda.descripcion}</span>
+              <span className="text-xs text-slate-400">{td(banda.descripcion)}</span>
             </span>
           </motion.button>
         )

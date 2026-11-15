@@ -1,23 +1,25 @@
 import { AnimatePresence, motion } from 'framer-motion'
+import { useIdioma } from '../i18n.jsx'
 
 // Selector de región (esquina superior derecha). Lista las regiones de regions.json.
 export default function RegionSelector({ regiones, region, onCambiar }) {
+  const { t, td } = useIdioma()
   const info =
     region.tipo === 'sintetica'
-      ? `Δt = ${region.delta}`
-      : `${region.ra_hms ?? region.ra} ${region.dec_dms ?? region.dec} · Δt = ${region.delta}`
+      ? `Δt = ${td(region.delta)}`
+      : `${region.ra_hms ?? region.ra} ${region.dec_dms ?? region.dec} · Δt = ${td(region.delta)}`
   const nombre = (r) =>
-    r.tipo === 'real' ? `${r.designacion} · ${r.nombre}` : r.tipo === 'simulada' ? r.nombre : `${r.nombre} (sintética)`
+    r.tipo === 'real' ? `${r.designacion} · ${td(r.nombre)}` : r.tipo === 'simulada' ? td(r.nombre) : `${r.nombre} (${t('region.sintetica')})`
 
   return (
     <div className="flex flex-col items-end gap-1 font-mono text-xs text-slate-500">
       <label className="flex items-center gap-2">
-        <span>Región:</span>
+        <span>{t('region.etiqueta')}</span>
         <span className="relative">
           <select
             value={region.id}
             onChange={(e) => onCambiar(e.target.value)}
-            aria-label="Región del cielo"
+            aria-label={t('region.aria')}
             className="cursor-pointer appearance-none rounded-lg border border-white/10 bg-space-900/80 py-1 pl-2.5 pr-7 text-slate-200 outline-none transition-colors hover:border-cyan-300/40 focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             {regiones.map((r) => (

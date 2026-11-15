@@ -7,10 +7,13 @@ import Comparator from './components/Comparator.jsx'
 import ViewerControls from './components/ViewerControls.jsx'
 import ReportPanel from './components/ReportPanel.jsx'
 import RegionSelector from './components/RegionSelector.jsx'
+import LanguageToggle from './components/LanguageToggle.jsx'
+import { useIdioma } from './i18n.jsx'
 import { REGION_POR_DEFECTO, REGION_SINTETICA, cargarRegiones, desplazamientoPx, regionDeHallazgo, tieneDestino } from './bandas.js'
 import { MODO_LOCAL, enviarHallazgo, hallazgosLocales, obtenerHallazgos } from './api.js'
 
 export default function App() {
+  const { t, td } = useIdioma()
   const [regiones, setRegiones] = useState([REGION_SINTETICA])
   const [regionId, setRegionId] = useState(REGION_POR_DEFECTO)
   const [banda, setBanda] = useState(REGION_SINTETICA.banda_inicial)
@@ -102,8 +105,7 @@ export default function App() {
     setModoDatos(modo)
     setEstadoApi('ok')
     setPendiente(null)
-    const ruta = tieneDestino(hallazgo) ? ` → (${hallazgo.x2}, ${hallazgo.y2}) · Δ ${desplazamientoPx(hallazgo).toFixed(1)} px` : ''
-    setAviso(`Hallazgo #${hallazgo.id} registrado en (${hallazgo.x}, ${hallazgo.y})${ruta}`)
+    setAviso(hallazgo)
   }
 
   return (
@@ -115,17 +117,20 @@ export default function App() {
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}>
           <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-cyan-300/80">NASA · SPHEREx Challenge</p>
           <h1 className="font-display text-2xl font-bold text-white sm:text-3xl">
-            Planeta-X <span className="font-normal text-slate-400">· Cazador de objetos en movimiento</span>
+            Planeta-X <span className="font-normal text-slate-400">· {t('app.titulo')}</span>
           </h1>
         </motion.div>
-        <RegionSelector regiones={regiones} region={region} onCambiar={cambiarRegion} />
+        <div className="flex items-start gap-3">
+          <LanguageToggle />
+          <RegionSelector regiones={regiones} region={region} onCambiar={cambiarRegion} />
+        </div>
       </header>
 
       <main className="mx-auto grid max-w-[1500px] gap-5 px-4 pb-8 sm:px-6 lg:grid-cols-[260px_minmax(0,1fr)_320px]">
         <div className="lg:sticky lg:top-5 lg:self-start">
           <BandSelector
             bandas={region.bandas}
-            titulo={region.titulo_bandas ?? (region.tipo === 'real' ? 'Bandas WISE (IR)' : 'Bandas IR cercano')}
+            titulo={region.titulo_bandas ? td(region.titulo_bandas) : t(region.tipo === 'real' ? 'bandas.wise' : 'bandas.ir_cercano')}
             rango={region.rango_bandas ?? (region.tipo === 'real' ? ['3.4 µm', '4.6 µm'] : undefined)}
             bandaActiva={banda}
             onCambiar={setBanda}
@@ -181,7 +186,13 @@ export default function App() {
             className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-emerald-300/40 bg-emerald-400/15 px-4 py-2 text-sm text-emerald-100 shadow-lg backdrop-blur"
             role="status"
           >
-            ✓ {aviso}
+            ✓{' '}
+            {t('aviso.registrado', {
+              id: aviso.id,
+              x: aviso.x,
+              y: aviso.y,
+              ruta: tieneDestino(aviso) ? ` → (${aviso.x2}, ${aviso.y2}) · Δ ${desplazamientoPx(aviso).toFixed(1)} px` : '',
+            })}
           </motion.div>
         )}
       </AnimatePresence>
