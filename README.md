@@ -117,7 +117,7 @@ Conversión FITS → PNG con `astropy`:
    arriba y este a la izquierda: así el mismo píxel es la misma posición del cielo en A y en B (los detectores
    de WISE estaban girados de forma distinta en cada pasada). El lado es el mayor cuadrado cubierto por los 4
    recortes de la región (0.19° en M42, 0.17° en M45).
-7. `astropy.visualization`: `ManualInterval(−1σ, percentil 99.9)` lleva el flujo a [0, 1] y
+7. `astropy.visualization`: `ManualInterval(−2σ, percentil 99.9)` lleva el flujo a [0, 1] y
    `LogStretch(a=1000)` aplica `y = log(1000·x + 1) / log(1001)`, que realza la nebulosa tenue sin quemar las
    estrellas. El mismo intervalo se usa en las dos épocas para que el parpadeo solo muestre cambios reales.
 8. Se multiplica por el color de la banda, se invierte el eje vertical (en FITS la fila 0 está abajo; en PNG,

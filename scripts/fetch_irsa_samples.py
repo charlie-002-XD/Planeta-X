@@ -288,7 +288,7 @@ def procesar_region(rid, nombre, designacion, respaldo, presupuesto) -> dict:
         _, _, sigma = sigma_clipped_stats(np.concatenate([a.ravel(), b.ravel()]), sigma=3.0)
         vmax = np.percentile(np.concatenate([a.ravel(), b.ravel()]), 99.9)
         # Primero el intervalo lineal [vmin, vmax] -> [0, 1]; después y = log(a·x + 1) / log(a + 1).
-        norma = LogStretch(a=1000) + ManualInterval(vmin=-1.0 * sigma, vmax=vmax)
+        norma = LogStretch(a=1000) + ManualInterval(vmin=-2.0 * sigma, vmax=vmax)
         imagenes = {}
         for epoca, arr in (("A", a), ("B", b)):
             nombre_png = f"{rid}_{bid}_epoca{epoca}.png"

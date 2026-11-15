@@ -234,7 +234,7 @@ function MenuExportar({ deshabilitado }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.96 }}
             transition={{ duration: 0.12 }}
-            className="absolute right-0 top-full z-20 mt-1.5 flex w-28 flex-col overflow-hidden rounded-lg border border-white/10 bg-space-900/95 py-1 shadow-xl backdrop-blur"
+            className="absolute right-0 top-full z-20 mt-1.5 flex w-32 flex-col overflow-hidden rounded-lg border border-white/10 bg-space-900/95 py-1 shadow-xl backdrop-blur"
           >
             {[
               ['csv', 'CSV (.csv)'],
@@ -245,7 +245,7 @@ function MenuExportar({ deshabilitado }) {
                 type="button"
                 role="menuitem"
                 onClick={() => descargar(formato)}
-                className="px-3 py-1.5 text-left font-mono text-xs text-slate-300 hover:bg-cyan-400/10 hover:text-cyan-100"
+                className="whitespace-nowrap px-3 py-1.5 text-left font-mono text-xs text-slate-300 hover:bg-cyan-400/10 hover:text-cyan-100"
               >
                 {etiqueta}
               </button>
