@@ -29,16 +29,18 @@ class SinServidor extends Error {}
 let memoria = null // copia en memoria si localStorage no está disponible (modo privado, cuota llena)
 
 function leerLocal() {
+  // La copia en memoria manda: si localStorage deja de aceptar escrituras (cuota), lo guardado allí queda viejo.
+  if (memoria) return memoria
   try {
     const guardado = localStorage.getItem(CLAVE_LOCAL)
     if (guardado !== null) {
       const datos = JSON.parse(guardado)
-      if (Array.isArray(datos)) return datos
+      if (Array.isArray(datos)) return (memoria = datos)
     }
   } catch {
-    if (memoria) return memoria
+    // localStorage no disponible o JSON dañado: se parte de los datos de ejemplo.
   }
-  const iniciales = memoria ?? HALLAZGOS_DEMO.map((h) => ({ ...h }))
+  const iniciales = HALLAZGOS_DEMO.map((h) => ({ ...h }))
   escribirLocal(iniciales)
   return iniciales
 }
