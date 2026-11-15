@@ -6,7 +6,7 @@ import Comparator from './components/Comparator.jsx'
 import ViewerControls from './components/ViewerControls.jsx'
 import ReportPanel from './components/ReportPanel.jsx'
 import RegionSelector from './components/RegionSelector.jsx'
-import { REGION_POR_DEFECTO, REGION_SINTETICA, cargarRegiones, regionDeHallazgo } from './bandas.js'
+import { REGION_POR_DEFECTO, REGION_SINTETICA, cargarRegiones, desplazamientoPx, regionDeHallazgo, tieneDestino } from './bandas.js'
 import { MODO_LOCAL, enviarHallazgo, hallazgosLocales, obtenerHallazgos } from './api.js'
 
 export default function App() {
@@ -67,6 +67,23 @@ export default function App() {
     return () => clearTimeout(id)
   }, [aviso])
 
+  // Un segundo clic en la otra época (o tras «Marcar destino en Época B») completa el vector A → B.
+  // Si no, el clic sustituye el punto pendiente.
+  const marcar = (punto) =>
+    setPendiente((p) => {
+      if (!p || tieneDestino(p) || !(p.armarDestino || p.epoca !== punto.epoca)) return punto
+      const [inicio, fin] = p.epoca === 'B' && punto.epoca === 'A' ? [punto, p] : [p, punto]
+      return { x: inicio.x, y: inicio.y, epoca: inicio.epoca, banda: p.banda, x2: fin.x, y2: fin.y }
+    })
+
+  const armarDestino = () => {
+    setPendiente((p) => p && { ...p, armarDestino: true })
+    if (modo === 'blink') setReproduciendo(false)
+  }
+
+  const quitarDestino = () =>
+    setPendiente((p) => p && { x: p.x, y: p.y, epoca: p.epoca, banda: p.banda })
+
   const enviar = async ({ tipo, comentario }) => {
     const { hallazgo, modo } = await enviarHallazgo({
       x: pendiente.x,
@@ -74,6 +91,7 @@ export default function App() {
       banda: pendiente.banda,
       region_id: region.id,
       epoca: pendiente.epoca,
+      ...(tieneDestino(pendiente) && { x2: pendiente.x2, y2: pendiente.y2 }),
       comentario,
       tipo,
     }, modoDatos)
@@ -82,7 +100,8 @@ export default function App() {
     setModoDatos(modo)
     setEstadoApi('ok')
     setPendiente(null)
-    setAviso(`Hallazgo #${hallazgo.id} registrado en (${hallazgo.x}, ${hallazgo.y})`)
+    const ruta = tieneDestino(hallazgo) ? ` → (${hallazgo.x2}, ${hallazgo.y2}) · Δ ${desplazamientoPx(hallazgo).toFixed(1)} px` : ''
+    setAviso(`Hallazgo #${hallazgo.id} registrado en (${hallazgo.x}, ${hallazgo.y})${ruta}`)
   }
 
   return (
@@ -129,7 +148,7 @@ export default function App() {
               reproduciendo={reproduciendo}
               hallazgos={hallazgosRegion}
               pendiente={pendiente}
-              onMarcar={setPendiente}
+              onMarcar={marcar}
             />
           </div>
         </section>
@@ -143,6 +162,8 @@ export default function App() {
           modoDatos={modoDatos}
           onEnviar={enviar}
           onCancelar={() => setPendiente(null)}
+          onArmarDestino={armarDestino}
+          onQuitarDestino={quitarDestino}
           onRecargar={cargarHallazgos}
         />
       </main>

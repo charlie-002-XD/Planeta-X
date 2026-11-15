@@ -5,7 +5,7 @@
  *   GET  /api/hallazgos.php                -> lista de hallazgos (array JSON)
  *   GET  /api/hallazgos.php?formato=csv    -> descarga hallazgos.csv
  *   GET  /api/hallazgos.php?formato=json   -> descarga hallazgos.json
- *   POST /api/hallazgos.php                -> guarda { x, y, banda, epoca, comentario, tipo?, region_id? }
+ *   POST /api/hallazgos.php                -> guarda { x, y, banda, epoca, comentario, tipo?, region_id?, x2?, y2? }
  *
  * Los datos se persisten en backend/data/hallazgos.json (o en la ruta de HALLAZGOS_ARCHIVO).
  */
@@ -17,7 +17,7 @@ define('ARCHIVO_DATOS', getenv('HALLAZGOS_ARCHIVO') ?: __DIR__ . '/../data/halla
 // banda1..4: región sintética · w1/w2: WISE 3.4 / 4.6 µm (regiones reales).
 const BANDAS_VALIDAS = ['banda1', 'banda2', 'banda3', 'banda4', 'w1', 'w2'];
 const PATRON_REGION = '/^[a-z0-9][a-z0-9+\-]{0,39}$/';
-const COLUMNAS_CSV = ['id', 'fecha', 'region_id', 'banda', 'epoca', 'x', 'y', 'tipo', 'comentario'];
+const COLUMNAS_CSV = ['id', 'fecha', 'region_id', 'banda', 'epoca', 'x', 'y', 'x2', 'y2', 'tipo', 'comentario'];
 const EPOCAS_VALIDAS = ['A', 'B'];
 const TIPOS_VALIDOS = ['asteroide', 'cometa', 'planeta'];
 const MAX_COORDENADA = 4096;
@@ -149,6 +149,19 @@ function validar(array $entrada): array
             $errores[] = "'{$eje}' fuera de rango (0-" . MAX_COORDENADA . ')';
         }
     }
+    // Destino opcional (x2, y2) en la Época B: vector de trayectoria desde (x, y). Van los dos o ninguno.
+    $conDestino = isset($entrada['x2']) || isset($entrada['y2']);
+    if ($conDestino) {
+        foreach (['x2', 'y2'] as $eje) {
+            if (!isset($entrada[$eje]) || !is_numeric($entrada[$eje])) {
+                $errores[] = "'x2' e 'y2' deben ser numéricos y enviarse juntos";
+                break;
+            }
+            if ($entrada[$eje] < 0 || $entrada[$eje] > MAX_COORDENADA) {
+                $errores[] = "'{$eje}' fuera de rango (0-" . MAX_COORDENADA . ')';
+            }
+        }
+    }
     if (!in_array($entrada['banda'] ?? null, BANDAS_VALIDAS, true)) {
         $errores[] = "'banda' debe ser una de: " . implode(', ', BANDAS_VALIDAS);
     }
@@ -187,6 +200,10 @@ function validar(array $entrada): array
         'epoca' => $entrada['epoca'],
         'comentario' => $comentario,
     ];
+    if ($conDestino) {
+        $hallazgo['x2'] = (int) round((float) $entrada['x2']);
+        $hallazgo['y2'] = (int) round((float) $entrada['y2']);
+    }
     if ($tipo !== null) {
         $hallazgo['tipo'] = $tipo;
     }

@@ -232,12 +232,19 @@ Conversión FITS → PNG con `astropy`:
    arriba) y Pillow guarda el PNG de 8 bits que el navegador ya puede mostrar.
 
 **Candidato transitorio sobre cielo real.** Antes del paso 7, el script suma al flujo calibrado de M42 y M45 una
-fuente puntual con el PSF gaussiano de WISE (FWHM 6.1″ en W1 y 6.4″ en W2; pico de 25σ y 40σ del fondo, más
+fuente puntual con el PSF gaussiano de WISE (FWHM 6.1″ en W1 y 6.4″ en W2; pico de 90σ y 140σ del fondo, para que se vea a simple vista, más
 brillante en W2 como la emisión térmica de un asteroide). Su posición cambia unos 50 px (~1′) entre la Época A y
 la B, siempre sobre fondo tenue, con una semilla fija por región. Como el intervalo de normalización se calcula
 con el cielo real, el fondo no cambia. Las posiciones `(x, y)` y `RA/Dec` de cada época quedan en
 `regions.json → candidato`. `--sin-candidato` genera solo el cielo real. Si IRSA no responde, el script reutiliza
 los recortes de `scripts/.cache_irsa/` sin descargar nada.
+
+**Vectores de trayectoria (A → B).** Un hallazgo puede guardar, además de `(x, y)` en la Época A, un destino
+opcional `(x2, y2)` en la Época B. Se marca con un segundo clic en la otra época o con el botón «Marcar destino
+en Época B». El visor dibuja una línea punteada neón con flecha y la distancia `Δpx`, y el rombo se desliza al
+punto de la época visible: en Blink al alternar A/B, y en el slider según el lado del divisor donde cae el vector.
+`x2`/`y2` se guardan en el backend PHP (se envían juntos o ninguno), en `localStorage` y en la exportación CSV/JSON.
+Los datos de ejemplo del modo demo traen ya un vector en la región sintética, otro en M42 y otro en M45.
 
 **Filtro por región.** Cada hallazgo guarda `region_id` (backend PHP y `localStorage`). El panel HALLAZGOS
 muestra por defecto **Esta región**; el interruptor **Todos** enseña los de todas las regiones. Exportar siempre
