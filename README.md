@@ -150,7 +150,7 @@ con `VITE_API_URL=https://tu-api.onrender.com` (y `CORS_ORIGIN` en el backend).
 | GET    | `/api/hallazgos.php`  | Lista de hallazgos (array JSON)                |
 | GET    | `/api/hallazgos.php?formato=csv` | Descarga todos los hallazgos como `.csv` (UTF-8 con BOM) |
 | GET    | `/api/hallazgos.php?formato=json` | Descarga todos los hallazgos como `.json` |
-| POST   | `/api/hallazgos.php`  | Guarda `{ x, y, banda, epoca, comentario, tipo?, region? }` |
+| POST   | `/api/hallazgos.php`  | Guarda `{ x, y, banda, epoca, comentario, tipo?, region_id? }` |
 
 ```bash
 curl -X POST http://localhost:8000/api/hallazgos.php \
@@ -159,7 +159,7 @@ curl -X POST http://localhost:8000/api/hallazgos.php \
 ```
 
 Validación: `x`, `y` numéricos (0–4096), `banda` ∈ `banda1..banda4|w1|w2`, `epoca` ∈ `A|B`, `comentario` ≤ 500
-caracteres, `tipo` opcional ∈ `asteroide|cometa|planeta`, `region` opcional (id en minúsculas; por defecto
+caracteres, `tipo` opcional ∈ `asteroide|cometa|planeta`, `region_id` opcional (id en minúsculas; `region` se acepta como alias; por defecto
 `spx-j0412+53`). En el CSV, las celdas que empiezan por `= + - @` se prefijan con `'` para evitar inyección de fórmulas. Errores → `400` con `{ "error": "..." }`.
 
 ## Cómo funciona
@@ -230,3 +230,16 @@ Conversión FITS → PNG con `astropy`:
    estrellas. El mismo intervalo se usa en las dos épocas para que el parpadeo solo muestre cambios reales.
 8. Se multiplica por el color de la banda, se invierte el eje vertical (en FITS la fila 0 está abajo; en PNG,
    arriba) y Pillow guarda el PNG de 8 bits que el navegador ya puede mostrar.
+
+**Candidato transitorio sobre cielo real.** Antes del paso 7, el script suma al flujo calibrado de M42 y M45 una
+fuente puntual con el PSF gaussiano de WISE (FWHM 6.1″ en W1 y 6.4″ en W2; pico de 25σ y 40σ del fondo, más
+brillante en W2 como la emisión térmica de un asteroide). Su posición cambia unos 50 px (~1′) entre la Época A y
+la B, siempre sobre fondo tenue, con una semilla fija por región. Como el intervalo de normalización se calcula
+con el cielo real, el fondo no cambia. Las posiciones `(x, y)` y `RA/Dec` de cada época quedan en
+`regions.json → candidato`. `--sin-candidato` genera solo el cielo real. Si IRSA no responde, el script reutiliza
+los recortes de `scripts/.cache_irsa/` sin descargar nada.
+
+**Filtro por región.** Cada hallazgo guarda `region_id` (backend PHP y `localStorage`). El panel HALLAZGOS
+muestra por defecto **Esta región**; el interruptor **Todos** enseña los de todas las regiones. Exportar siempre
+descarga todos. Los hallazgos antiguos con `region` o sin región siguen funcionando (`region` → `region_id`;
+sin región → sintética).

@@ -14,9 +14,15 @@ común de 512×512 px (norte arriba, este a la izquierda) para que ambas épocas
 coincidan píxel a píxel, se estira con escala logarítmica y se guarda como PNG en
 frontend/public/assets/regions/, junto con regions.json (metadatos de cada región).
 
+Para que también haya algo que cazar sobre cielo real, se inyecta un candidato transitorio
+sintético: una fuente puntual con el PSF gaussiano de WISE que cambia de (X, Y) entre la
+Época A y la B. Se suma en flujo calibrado, antes del estiramiento, así que pasa por el mismo
+procesado que las estrellas reales. Su posición queda en regions.json (`candidato`).
+
 Uso:
     pip install -r scripts/requirements-irsa.txt
     python scripts/fetch_irsa_samples.py
+    python scripts/fetch_irsa_samples.py --sin-candidato   # solo el cielo real
 """
 
 from __future__ import annotations
@@ -25,6 +31,7 @@ import argparse
 import json
 import sys
 import warnings
+import zlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -65,6 +72,17 @@ BANDAS = [
     ("w1", "W1", 3.4, "#fdba74", "WISE W1 · estrellas y polvo cálido"),
     ("w2", "W2", 4.6, "#f87171", "WISE W2 · polvo caliente y objetos fríos"),
 ]
+
+# Candidato transitorio inyectado: PSF de WISE (FWHM ≈ 6.1" en W1, 6.4" en W2) y brillo pico en
+# múltiplos del ruido de fondo de cada banda. Más brillante en W2, como la emisión térmica de un
+# asteroide cercano; en la Época B algo más débil (más lejos del Sol y de la Tierra).
+CANDIDATO = {
+    "fwhm_arcsec": {"W1": 6.1, "W2": 6.4},
+    "pico_sigmas": {"W1": 25.0, "W2": 40.0},
+    "factor_epoca": {"A": 1.0, "B": 0.85},
+    "desplazamiento_px": (38, 58),
+    "margen_px": 64,
+}
 
 EPOCAS = {
     "A": {"coleccion": "wise_allsky", "mision": "WISE All-Sky (criogénica)"},
@@ -148,6 +166,19 @@ def candidatos(centro: SkyCoord, coleccion: str) -> list[dict]:
     return [e for e in exposiciones.values() if {"W1", "W2"} <= e["urls"].keys()]
 
 
+def exposiciones_en_cache(rid: str, coleccion: str) -> list[dict]:
+    """Exposiciones con W1 y W2 ya descargadas en CACHE (para regenerar PNG si IRSA no responde)."""
+    prefijo = f"{rid}_{coleccion}_"
+    exposiciones = []
+    for w1 in sorted(CACHE.glob(f"{prefijo}*_W1*.fits")):
+        obs_id = w1.name[len(prefijo) :].split("_W1")[0]
+        if next(CACHE.glob(f"{prefijo}{obs_id}_W2*.fits"), None) is None:
+            continue
+        mjd = float(fits.getheader(w1)["MJD_OBS"])
+        exposiciones.append({"obs_id": obs_id, "t_min": mjd, "separacion": 0.0, "urls": {"W1": None, "W2": None}})
+    return exposiciones
+
+
 def ordenar(exposiciones: list[dict], epoca: str) -> list[dict]:
     if epoca == "A":
         # La exposición mejor centrada: el recorte cae completo dentro del detector.
@@ -161,6 +192,11 @@ def descargar_recorte(url: str, centro: SkyCoord, destino: Path, presupuesto: Pr
     """Pide a IRSA un recorte de 2·RADIO de lado (el servidor recorta el FITS original)."""
     # El centro forma parte del nombre: si cambian las coordenadas resueltas, se pide un recorte nuevo.
     destino = destino.with_name(f"{destino.stem}_{centro.ra.deg:.4f}{centro.dec.deg:+.4f}{destino.suffix}")
+    if url is None:  # modo caché: recortes de una ejecución anterior (con o sin el centro en el nombre)
+        sin_centro = destino.with_name(destino.name.replace(f"_{centro.ra.deg:.4f}{centro.dec.deg:+.4f}", ""))
+        destino = destino if destino.exists() else next(CACHE.glob(f"{sin_centro.stem}*.fits"), destino)
+        if not destino.exists():
+            sys.exit(f"✖ IRSA no responde y no hay recorte en caché para {destino.name}")
     if destino.exists():  # ya descargado en una ejecución anterior: cuenta igual para el límite
         presupuesto.sumar(destino.stat().st_size)
         return fits.open(destino)
@@ -234,6 +270,34 @@ def reproyectar(datos: np.ndarray, wcs: WCS, destino: WCS) -> np.ndarray:
     return salida
 
 
+def elegir_trayectoria(ref_a: np.ndarray, ref_b: np.ndarray, rid: str) -> dict[str, tuple[float, float]]:
+    """Posición (fila, columna) del candidato en cada época, sobre zonas de fondo tenue.
+
+    Semilla fija por región: volver a ejecutar el script da la misma trayectoria.
+    """
+    rng = np.random.default_rng(zlib.crc32(rid.encode()))
+    suave = convolve(np.maximum(ref_a, ref_b), Box2DKernel(15), boundary="extend")
+    tenue = suave < np.percentile(suave, 40)
+    m = CANDIDATO["margen_px"]
+    dmin, dmax = CANDIDATO["desplazamiento_px"]
+    for _ in range(5000):
+        fa, ca = rng.uniform(m, TAMANO_PX - m, size=2)
+        angulo, distancia = rng.uniform(0, 2 * np.pi), rng.uniform(dmin, dmax)
+        fb, cb = fa + distancia * np.sin(angulo), ca + distancia * np.cos(angulo)
+        if not (m <= fb < TAMANO_PX - m and m <= cb < TAMANO_PX - m):
+            continue
+        if tenue[int(fa), int(ca)] and tenue[int(fb), int(cb)]:
+            return {"A": (fa, ca), "B": (fb, cb)}
+    sys.exit(f"✖ No encontré fondo tenue para el candidato de {rid}")
+
+
+def inyectar_fuente(datos: np.ndarray, fila: float, columna: float, sigma_px: float, pico: float) -> np.ndarray:
+    """Suma una gaussiana 2D (PSF) de altura `pico` centrada en (fila, columna)."""
+    filas, columnas = np.mgrid[0 : datos.shape[0], 0 : datos.shape[1]]
+    psf = np.exp(-((filas - fila) ** 2 + (columnas - columna) ** 2) / (2 * sigma_px**2))
+    return datos + pico * psf
+
+
 def a_png(datos: np.ndarray, norma: BaseTransform, color: str, ruta: Path) -> None:
     valores = norma(datos, clip=True)  # 0..1 tras el estiramiento log
     tinte = np.array([int(color[i : i + 2], 16) for i in (1, 3, 5)]) / 255
@@ -243,13 +307,17 @@ def a_png(datos: np.ndarray, norma: BaseTransform, color: str, ruta: Path) -> No
     Image.fromarray((np.flipud(rgb) * 255).astype(np.uint8), "RGB").save(ruta, optimize=True)
 
 
-def procesar_region(rid, nombre, designacion, respaldo, presupuesto) -> dict:
+def procesar_region(rid, nombre, designacion, respaldo, presupuesto, con_candidato=True) -> dict:
     print(f"\n▶ {designacion} · {nombre}")
     centro = resolver(designacion, respaldo)
     epocas_meta, calibradas = {}, {}
 
     for epoca, conf in EPOCAS.items():
-        expos = ordenar(candidatos(centro, conf["coleccion"]), epoca)
+        try:
+            expos = ordenar(candidatos(centro, conf["coleccion"]), epoca)
+        except Exception as err:  # IRSA caído o sin red: se reutilizan los recortes ya descargados
+            print(f"  (IRSA SIA no disponible: {str(err).splitlines()[0]}; uso la caché local)")
+            expos = ordenar(exposiciones_en_cache(rid, conf["coleccion"]), epoca)
         if not expos:
             sys.exit(f"✖ Sin exposiciones de {conf['coleccion']} para {designacion}")
         for exp in expos[:MAX_INTENTOS_POR_EPOCA]:
@@ -283,6 +351,9 @@ def procesar_region(rid, nombre, designacion, respaldo, presupuesto) -> dict:
     datos = {e: {b: reproyectar(*img, destino) for b, img in ep.items()} for e, ep in calibradas.items()}
     print(f"  ✔ Rejilla común: {lado:.3f}° de lado → {TAMANO_PX}×{TAMANO_PX} px")
 
+    escala = lado * 3600 / TAMANO_PX  # arcsec / px
+    trayectoria = elegir_trayectoria(datos["A"]["W1"], datos["B"]["W1"], rid) if con_candidato else None
+
     bandas_meta = []
     for bid, birsa, longitud, color, descripcion in BANDAS:
         a, b = datos["A"][birsa], datos["B"][birsa]
@@ -290,7 +361,13 @@ def procesar_region(rid, nombre, designacion, respaldo, presupuesto) -> dict:
         _, _, sigma = sigma_clipped_stats(np.concatenate([a.ravel(), b.ravel()]), sigma=3.0)
         vmax = np.percentile(np.concatenate([a.ravel(), b.ravel()]), 99.9)
         # Primero el intervalo lineal [vmin, vmax] -> [0, 1]; después y = log(a·x + 1) / log(a + 1).
+        # La normalización se fija con el cielo real: el candidato no altera el aspecto del fondo.
         norma = LogStretch(a=1000) + ManualInterval(vmin=-2.0 * sigma, vmax=vmax)
+        if trayectoria:
+            sigma_psf = CANDIDATO["fwhm_arcsec"][birsa] / 2.3548 / escala
+            pico = CANDIDATO["pico_sigmas"][birsa] * sigma
+            a = inyectar_fuente(a, *trayectoria["A"], sigma_psf, pico * CANDIDATO["factor_epoca"]["A"])
+            b = inyectar_fuente(b, *trayectoria["B"], sigma_psf, pico * CANDIDATO["factor_epoca"]["B"])
         imagenes = {}
         for epoca, arr in (("A", a), ("B", b)):
             nombre_png = f"{rid}_{bid}_epoca{epoca}.png"
@@ -305,6 +382,34 @@ def procesar_region(rid, nombre, designacion, respaldo, presupuesto) -> dict:
                 "descripcion": descripcion,
                 "imagenes": imagenes,
             }
+        )
+
+    candidato = None
+    if trayectoria:
+        posiciones = {}
+        for epoca, (fila, columna) in trayectoria.items():
+            cielo = destino.pixel_to_world(columna, fila)
+            # x, y en píxeles del PNG (fila 0 arriba), el mismo sistema que usan los hallazgos.
+            posiciones[epoca] = {
+                "x": round(columna),
+                "y": round(TAMANO_PX - 1 - fila),
+                "ra": round(cielo.ra.deg, 5),
+                "dec": round(cielo.dec.deg, 5),
+            }
+        (fa, ca), (fb, cb) = trayectoria["A"], trayectoria["B"]
+        desplazamiento = float(np.hypot(fb - fa, cb - ca))
+        candidato = {
+            "tipo": "asteroide (sintético, inyectado)",
+            "descripcion": "Fuente puntual gaussiana (PSF de WISE) añadida al flujo real; cambia de posición entre épocas",
+            "posiciones": posiciones,
+            "desplazamiento_px": round(desplazamiento, 1),
+            "desplazamiento_arcsec": round(desplazamiento * escala, 1),
+            "fwhm_arcsec": CANDIDATO["fwhm_arcsec"],
+            "pico_sigmas": CANDIDATO["pico_sigmas"],
+        }
+        print(
+            f"  ✔ Candidato: A({posiciones['A']['x']}, {posiciones['A']['y']}) → "
+            f"B({posiciones['B']['x']}, {posiciones['B']['y']}) · {desplazamiento:.0f} px"
         )
 
     dias = epocas_meta["B"]["mjd"] - epocas_meta["A"]["mjd"]
@@ -327,17 +432,19 @@ def procesar_region(rid, nombre, designacion, respaldo, presupuesto) -> dict:
         "epocas": epocas_meta,
         "bandas": bandas_meta,
         "fuente": "NASA/IPAC Infrared Science Archive (IRSA) · WISE/NEOWISE",
+        **({"candidato": candidato} if candidato else {}),
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--limpiar-cache", action="store_true", help="borra los FITS descargados al terminar")
+    parser.add_argument("--sin-candidato", action="store_true", help="no inyecta el candidato transitorio sintético")
     args = parser.parse_args()
 
     SALIDA.mkdir(parents=True, exist_ok=True)
     presupuesto = Presupuesto(PRESUPUESTO_BYTES)
-    regiones = [REGION_SINTETICA] + [procesar_region(*r, presupuesto) for r in REGIONES]
+    regiones = [REGION_SINTETICA] + [procesar_region(*r, presupuesto, not args.sin_candidato) for r in REGIONES]
 
     catalogo = {
         "generado": datetime.now(timezone.utc).isoformat(timespec="seconds"),

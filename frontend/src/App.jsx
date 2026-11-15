@@ -72,7 +72,7 @@ export default function App() {
       x: pendiente.x,
       y: pendiente.y,
       banda: pendiente.banda,
-      region: region.id,
+      region_id: region.id,
       epoca: pendiente.epoca,
       comentario,
       tipo,
@@ -136,6 +136,7 @@ export default function App() {
 
         <ReportPanel
           regiones={regiones}
+          regionActual={region}
           pendiente={pendiente}
           hallazgos={hallazgos}
           estadoApi={estadoApi}

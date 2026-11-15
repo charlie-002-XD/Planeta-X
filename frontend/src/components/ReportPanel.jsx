@@ -5,11 +5,12 @@ import { MODO_LOCAL, exportarHallazgos } from '../api.js'
 
 const TIPOS = ['asteroide', 'cometa', 'planeta']
 
-export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi, modoDatos, onEnviar, onCancelar, onRecargar }) {
+export default function ReportPanel({ regiones, regionActual, pendiente, hallazgos, estadoApi, modoDatos, onEnviar, onCancelar, onRecargar }) {
   const [tipo, setTipo] = useState('asteroide')
   const [comentario, setComentario] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+  const [soloRegion, setSoloRegion] = useState(true)
 
   useEffect(() => {
     setError('')
@@ -30,6 +31,9 @@ export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi,
   }
 
   const infoBanda = (id) => regiones.flatMap((r) => r.bandas).find((b) => b.id === id)
+  const deRegion = hallazgos.filter((h) => regionDeHallazgo(h) === regionActual?.id)
+  const visibles = soloRegion ? deRegion : hallazgos
+
   const nombreRegion = (h) => {
     const r = regiones.find((reg) => reg.id === regionDeHallazgo(h))
     return r?.designacion ?? regionDeHallazgo(h)
@@ -119,7 +123,7 @@ export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi,
       <div className="panel flex min-h-0 flex-1 flex-col p-4">
         <div className="flex items-center justify-between">
           <h2 className="whitespace-nowrap text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-            Hallazgos <span className="text-slate-500">({hallazgos.length})</span>
+            Hallazgos <span className="text-slate-500">({visibles.length})</span>
           </h2>
           <div className="flex items-center gap-2">
             <button type="button" onClick={onRecargar} className="text-xs text-slate-400 hover:text-cyan-200">
@@ -128,15 +132,35 @@ export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi,
             <MenuExportar modoDatos={modoDatos} deshabilitado={estadoApi !== 'ok' || hallazgos.length === 0} />
           </div>
         </div>
-        <div className="mt-2">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <IndicadorModo estadoApi={estadoApi} modoDatos={modoDatos} />
+          <div role="tablist" aria-label="Filtrar hallazgos" className="inline-flex rounded-full border border-white/10 p-0.5 font-mono text-[10px]">
+            {[
+              [true, 'Esta región', deRegion.length],
+              [false, 'Todos', hallazgos.length],
+            ].map(([valor, etiqueta, n]) => (
+              <button
+                key={etiqueta}
+                type="button"
+                role="tab"
+                aria-selected={soloRegion === valor}
+                onClick={() => setSoloRegion(valor)}
+                title={valor ? `Solo ${regionActual?.designacion ?? 'la región activa'}` : 'Hallazgos de todas las regiones'}
+                className={`whitespace-nowrap rounded-full px-2 py-0.5 transition-colors ${
+                  soloRegion === valor ? 'bg-cyan-400/15 text-cyan-100' : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                {etiqueta} · {n}
+              </button>
+            ))}
+          </div>
         </div>
         {estadoApi === 'error' && (
           <p className="mt-2 text-xs text-rose-300">El backend PHP respondió con un error. Prueba a recargar.</p>
         )}
         <ul className="mt-3 flex max-h-80 flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none">
           <AnimatePresence initial={false}>
-            {[...hallazgos].reverse().map((h) => (
+            {[...visibles].reverse().map((h) => (
               <motion.li
                 key={h.id}
                 layout
@@ -164,7 +188,11 @@ export default function ReportPanel({ regiones, pendiente, hallazgos, estadoApi,
               </motion.li>
             ))}
           </AnimatePresence>
-          {hallazgos.length === 0 && estadoApi === 'ok' && <li className="text-xs text-slate-500">Aún no hay reportes.</li>}
+          {visibles.length === 0 && estadoApi === 'ok' && (
+            <li className="text-xs text-slate-500">
+              {soloRegion && hallazgos.length > 0 ? 'Aún no hay reportes en esta región.' : 'Aún no hay reportes.'}
+            </li>
+          )}
         </ul>
       </div>
     </motion.aside>

@@ -3,7 +3,7 @@
 // Si el backend no responde (frontend desplegado solo en Vercel/GitHub Pages, servidor caído, etc.)
 // la app pasa a "modo demo local": los hallazgos se leen y guardan en localStorage, partiendo de
 // unos datos de ejemplo. Cada función devuelve también el `modo` con el que se resolvió.
-import { REGION_POR_DEFECTO } from './bandas.js'
+import { REGION_POR_DEFECTO, regionDeHallazgo } from './bandas.js'
 
 const BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 const URL_HALLAZGOS = `${BASE}/api/hallazgos.php`
@@ -17,9 +17,9 @@ const CLAVE_LOCAL = 'planeta-x:hallazgos:v1'
 
 // El objeto móvil de las imágenes sintéticas, visto en las dos épocas de la banda de 1.6 µm.
 export const HALLAZGOS_DEMO = [
-  { id: 1, x: 412, y: 538, banda: 'banda2', epoca: 'A', tipo: 'asteroide', comentario: 'Candidato en la Época A', fecha: '2025-06-01T03:12:00Z' },
-  { id: 2, x: 468, y: 501, banda: 'banda2', epoca: 'B', tipo: 'asteroide', comentario: 'Mismo objeto 6 meses después: se desplaza al NE', fecha: '2025-12-01T03:12:00Z' },
-  { id: 3, x: 470, y: 503, banda: 'banda4', epoca: 'B', tipo: 'asteroide', comentario: 'Sigue visible a 3.8 µm: emisión térmica', fecha: '2025-12-01T03:20:00Z' },
+  { id: 1, region_id: REGION_POR_DEFECTO, x: 412, y: 538, banda: 'banda2', epoca: 'A', tipo: 'asteroide', comentario: 'Candidato en la Época A', fecha: '2025-06-01T03:12:00Z' },
+  { id: 2, region_id: REGION_POR_DEFECTO, x: 468, y: 501, banda: 'banda2', epoca: 'B', tipo: 'asteroide', comentario: 'Mismo objeto 6 meses después: se desplaza al NE', fecha: '2025-12-01T03:12:00Z' },
+  { id: 3, region_id: REGION_POR_DEFECTO, x: 470, y: 503, banda: 'banda4', epoca: 'B', tipo: 'asteroide', comentario: 'Sigue visible a 3.8 µm: emisión térmica', fecha: '2025-12-01T03:20:00Z' },
 ]
 
 /** Errores que no deben activar el modo demo (p. ej. validación 400 del backend). */
@@ -114,7 +114,7 @@ export async function enviarHallazgo(hallazgo, modo = MODO_SERVIDOR) {
 }
 export const hallazgosLocales = () => leerLocal()
 
-const COLUMNAS_CSV = ['id', 'fecha', 'region', 'banda', 'epoca', 'x', 'y', 'tipo', 'comentario']
+const COLUMNAS_CSV = ['id', 'fecha', 'region_id', 'banda', 'epoca', 'x', 'y', 'tipo', 'comentario']
 
 // Igual que el backend: las celdas que Excel/LibreOffice interpretarían como fórmula se prefijan con '.
 const celdaCsv = (valor) => {
@@ -124,7 +124,7 @@ const celdaCsv = (valor) => {
 }
 
 function archivoLocal(formato) {
-  const lista = leerLocal().map((h) => ({ region: REGION_POR_DEFECTO, ...h }))
+  const lista = leerLocal().map((h) => ({ region_id: regionDeHallazgo(h), ...h }))
   const sello = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15)
   if (formato === 'csv') {
     const filas = [COLUMNAS_CSV, ...lista.map((h) => COLUMNAS_CSV.map((c) => h[c]))]

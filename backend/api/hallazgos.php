@@ -5,7 +5,7 @@
  *   GET  /api/hallazgos.php                -> lista de hallazgos (array JSON)
  *   GET  /api/hallazgos.php?formato=csv    -> descarga hallazgos.csv
  *   GET  /api/hallazgos.php?formato=json   -> descarga hallazgos.json
- *   POST /api/hallazgos.php                -> guarda { x, y, banda, epoca, comentario, tipo?, region? }
+ *   POST /api/hallazgos.php                -> guarda { x, y, banda, epoca, comentario, tipo?, region_id? }
  *
  * Los datos se persisten en backend/data/hallazgos.json (o en la ruta de HALLAZGOS_ARCHIVO).
  */
@@ -17,7 +17,7 @@ define('ARCHIVO_DATOS', getenv('HALLAZGOS_ARCHIVO') ?: __DIR__ . '/../data/halla
 // banda1..4: región sintética · w1/w2: WISE 3.4 / 4.6 µm (regiones reales).
 const BANDAS_VALIDAS = ['banda1', 'banda2', 'banda3', 'banda4', 'w1', 'w2'];
 const PATRON_REGION = '/^[a-z0-9][a-z0-9+\-]{0,39}$/';
-const COLUMNAS_CSV = ['id', 'fecha', 'region', 'banda', 'epoca', 'x', 'y', 'tipo', 'comentario'];
+const COLUMNAS_CSV = ['id', 'fecha', 'region_id', 'banda', 'epoca', 'x', 'y', 'tipo', 'comentario'];
 const EPOCAS_VALIDAS = ['A', 'B'];
 const TIPOS_VALIDOS = ['asteroide', 'cometa', 'planeta'];
 const MAX_COORDENADA = 4096;
@@ -97,6 +97,12 @@ function agregarHallazgo(array $hallazgo): array
     }
 }
 
+/** Región de un hallazgo; los guardados antes de `region_id` usaban `region` o ninguna (sintética). */
+function regionDe(array $h): string
+{
+    return (string) ($h['region_id'] ?? $h['region'] ?? REGION_POR_DEFECTO);
+}
+
 /** Evita que Excel/LibreOffice interpreten un comentario como fórmula (inyección CSV). */
 function celdaSegura($valor): string
 {
@@ -123,7 +129,7 @@ function exportar(array $lista, string $formato): void
     foreach ($lista as $h) {
         $fila = [];
         foreach (COLUMNAS_CSV as $col) {
-            $valor = $h[$col] ?? ($col === 'region' ? REGION_POR_DEFECTO : '');
+            $valor = $col === 'region_id' ? regionDe($h) : ($h[$col] ?? '');
             $fila[] = celdaSegura(is_scalar($valor) ? $valor : json_encode($valor));
         }
         fputcsv($salida, $fila, ',', '"', '');
@@ -163,9 +169,10 @@ function validar(array $entrada): array
     if ($tipo !== null && !in_array($tipo, TIPOS_VALIDOS, true)) {
         $errores[] = "'tipo' debe ser uno de: " . implode(', ', TIPOS_VALIDOS);
     }
-    $region = $entrada['region'] ?? REGION_POR_DEFECTO;
+    // `region` se sigue aceptando como alias de clientes anteriores.
+    $region = $entrada['region_id'] ?? $entrada['region'] ?? REGION_POR_DEFECTO;
     if (!is_string($region) || !preg_match(PATRON_REGION, $region)) {
-        $errores[] = "'region' debe ser un identificador en minúsculas (a-z, 0-9, + o -)";
+        $errores[] = "'region_id' debe ser un identificador en minúsculas (a-z, 0-9, + o -)";
     }
 
     if ($errores) {
@@ -173,7 +180,7 @@ function validar(array $entrada): array
     }
 
     $hallazgo = [
-        'region' => $region,
+        'region_id' => $region,
         'x' => (int) round((float) $entrada['x']),
         'y' => (int) round((float) $entrada['y']),
         'banda' => $entrada['banda'],
@@ -198,6 +205,7 @@ switch ($_SERVER['REQUEST_METHOD'] ?? 'GET') {
         if ($lista === null) {
             responder(500, ['error' => 'hallazgos.json está dañado o no se puede leer']);
         }
+        $lista = array_map(fn(array $h): array => ['region_id' => regionDe($h)] + $h, $lista);
         $formato = $_GET['formato'] ?? null;
         if ($formato !== null) {
             if (!in_array($formato, ['csv', 'json'], true)) {
